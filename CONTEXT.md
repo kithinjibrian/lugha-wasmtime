@@ -377,14 +377,41 @@ CHANGELOG.md CONTEXT.md
 
 ---
 
-## SESSION 11 — 2026-10-17 — First release — open
+## SESSION 11 — 2026-10-17 — First release — closed
 
 Branch: main
 
-(In progress.)
+### WHAT WAS DONE
+
+The owner asked for a release, done the way lugha-gtk does it. lugha-gtk: one commit `lugha-gtk X.Y.Z: <summary>` bumping `[package] version` and the README's "What's covered (X.Y.Z)", a lightweight tag `vX.Y.Z` on it, pushed; no GitHub Release objects. lughac's git packages resolve `version = "R"` to the newest matching `vX.Y.Z` tag. Released **0.1.0** (lugha.toml was already `0.1.0`, nothing tagged before; lugha-gtk's first was `v0.1.0` too): README gained Requirements (lughac milestones 99, 102–107, 109), "Using it" and "What's covered (0.1.0)"; CHANGELOG got `[0.1.0] — 2026-10-17`. Checked first that a program depending on the package by path, with no `[link]` of its own, links and runs. Commit `e3e9477`, tag `v0.1.0`, both pushed. Then a fresh program using the README's `git` entry fetched `v0.1.0` from GitHub, locked `e3e9477` and ran (`Ok([I64(42)])`).
+
+### FILES CREATED OR MODIFIED
+
+```
+README.md    — Requirements, Using it, What's covered (0.1.0)
+CHANGELOG.md — [0.1.0] — 2026-10-17
+CONTEXT.md   — this session
+```
+
+### TESTS WRITTEN
+
+- None (59 pass; plus the two consumer checks above, in the scratchpad).
+
+### DECISIONS MADE
+
+- Releases follow lugha-gtk: `lugha-wasmtime X.Y.Z: …` commit, lightweight `vX.Y.Z` tag, pushed; no GitHub Release object. This repo also keeps CHANGELOG.md.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- `src/raw.la` at 396 lines. lughac gaps left to report: keyword field names, absent callbacks.
+- Merged branches `prp-001-core_runtime`, `prp-001-unit_results`, `raw-constants` are local only.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open a session first. The repository is public at https://github.com/kithinjibrian/lugha-wasmtime and sessions now close with a push, after asking the owner and checking `lughac test test/`'s real exit status. PRP-001 is done on `main`. Split `src/raw.la` (396 lines) before any new extern, with approval. Report the two remaining lughac gaps in docs/specs/lughac-c-pointers.md.
+Open a session first. 0.1.0 is released (`v0.1.0`, `e3e9477`) and on GitHub. A new release: bump `[package] version` in `lugha.toml`, the README's "What's covered (X.Y.Z)" and CHANGELOG, commit as `lugha-wasmtime X.Y.Z: <summary>`, tag `vX.Y.Z` (lightweight), and ask the owner before pushing, after checking `lughac test test/`'s real exit status. Split `src/raw.la` (396 lines) before any new extern, with approval. Report the two remaining lughac gaps in docs/specs/lughac-c-pointers.md.
