@@ -11,7 +11,14 @@ Rules:
 
 ## OPEN — Requires human input before implementation
 
-(none)
+### DECISION-007 — Where `raw` can't spell the header exactly
+
+**Status:** open (approved or rejected with PRP-001)
+**Raised:** 2026-10-17 — Session 5
+
+**Question:** Lugha can't escape keywords, unions can't hold pointers, and a callback can't be absent. How does `raw` declare those parts of the headers?
+
+**Proposal (PRP-001, DECISION-007):** (1) a C name that's a Lugha keyword gets a trailing `_` (`of_`, `i32_`, `private_`), and `__private…` becomes `private…`, layout unchanged; (2) private pointers inside union members are `u64`, per lugha decision 110; (3) `wasmtime_store_new`'s NULL `finalizer` is `Option<CPtr>`, passed `None`. Report (1) and (3) to lughac as gaps.
 
 ---
 
@@ -31,6 +38,22 @@ Rules:
 
 ## RESOLVED
 
+### DECISION-006 — How the safe API frees handles
+
+**Status:** resolved
+**Raised:** 2026-10-17 — Session 5
+**Resolved:** 2026-10-17 — Session 5 (the owner chose the recommendation)
+
+**Question:** Lugha has no destructors and copies values freely. How are wasmtime handles freed exactly once, with nothing outliving its store?
+
+**Outcome:** Explicit `close()` on `Engine`, `Store`, `Module` and `Linker`. Each shares a `Ref<bool>` live flag with its copies, so a second `close()` does nothing. Instances and memories check their store's flag, a host call's `Caller` and memories check a flag that drops when the call returns, and any use after close is `Err(Closed)`. Forgetting `close()` leaks, so the examples always close.
+
+**Rationale:** Long-lived stores (a shell running apps across events) rule out scoped callbacks. Explicit frees match lugha-gtk. wasmtime reference-counts engines, modules and host functions, so the order of closing can't cause a use-after-free (checked in a probe for linkers).
+
+**Copied to MEMORY.md:** yes
+
+---
+
 ### DECISION-005 — lughac can't pass pointers, out-parameters or byte buffers to C
 
 **Status:** resolved
@@ -40,6 +63,8 @@ Rules:
 **Outcome:** Fix lughac first. PRP-001 waits until lughac can pass out-parameters, pointers to extern structs and byte buffers across the C boundary. No C shim in this package. What wasmtime needs, with header lines, is in `docs/specs/lughac-c-pointers.md`, the input for a lughac PRP in `../lugha` under that repo's rules.
 
 **Rationale:** Keeps `wasmtime.raw` exactly the headers (architecture rule 1), follows the Rapidkoi meeting's "gaps are fixed upstream, never worked around", adds no unchecked C between Lugha and untrusted guests, and lets lugha-gtk drop its own shims later.
+
+**Progress (session 5):** m103–m106 cover every remaining need; checked end to end against libwasmtime (see PRP-001). PRP-001 unblocked.
 
 **Progress (session 4):** lughac m102 added `out` parameters; checked against libwasmtime, they cover needs 1 and 2 of `docs/specs/lughac-c-pointers.md`. PRP-001 stays blocked on the rest (pointers in, bytes, unions, pointer callbacks) and on a new gap: nullable pointer fields in an `extern struct` (E0437). See the spec's Status section.
 

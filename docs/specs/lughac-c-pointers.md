@@ -3,6 +3,10 @@
 **From:** lugha-wasmtime, session 3 (2026-10-17). **Decision:** DECISION-005 (resolved: fix lughac first).
 **For:** a lughac PRP in `../lugha`, written and built under that repo's rules. This file is a list of needs, not a design: the syntax is lughac's to choose.
 
+## Status (session 5, after lughac m103–m106)
+
+Every need is met. An end-to-end probe passed against libwasmtime at `-O0` and `-O2`: function types from `wasm_valtype_vec_new` and `wasm_functype_new`, host functions with `Val[]`/`Ref<Val[]>`, the caller's memory via `CPtr` and `c_read`/`c_write`, export lookup into `wasmtime_extern_t` (an `extern union`), `wasmtime_func_call`, and `wasm_byte_vec_t` with a `CPtr` field read and freed. Two small gaps remain, neither blocking (DECISION-007): no way to name a field after a keyword (`of`, `i32`), and no NULL callback.
+
 ## Status (session 4, 2026-10-17, after lughac m102)
 
 `out` parameters (milestone 102, lugha PR #60) were checked against libwasmtime v49.0.3 at `-O0` and `-O2`: fuel into a variable, a field and an element; a trap code (with the zeroed slot when C writes nothing); `wasmtime_wat2wasm` filling a `wasm_byte_vec_t`; `wasmtime_module_new` into `Option` of a handle (`Some`, and `None` on a bad module). All correct.

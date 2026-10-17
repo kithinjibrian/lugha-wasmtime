@@ -67,16 +67,23 @@ Read this at the start of every session before writing any code.
 
 ---
 
+### 7. Explicit close() with shared live flags (DECISION-006)
+
+**Decision:** `Engine`, `Store`, `Module`, `Linker` have `close()`; a `Ref<bool>` shared by copies makes it free once; use after close is `Err(Closed)`; instances, memories and callers check the flag they depend on.
+
+**Why:** Lugha has no destructors; long-lived stores rule out scoped callbacks; matches lugha-gtk.
+
+**Rules out:** Finalizer tricks, scoped-only APIs, raw handles that a user could free.
+
+---
+
 ## CURRENT PROJECT STATE
 
 ### Fully Working
 - `lughac init --lib` skeleton; context system (session 1).
 
-### In Progress
-- Nothing.
-
-### Blocked
-- PRP-001 (core runtime bindings; the owner's brief is recorded in CONTEXT.md session 3): waits on lughac pointer interop (DECISION-005). wasmtime v49.0.3 is installed.
+### In Review
+- PRP-001 (core runtime), proposed session 5; lughac m102–m106 cover all of it (probed against libwasmtime).
 
 ---
 
