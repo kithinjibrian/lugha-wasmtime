@@ -340,11 +340,40 @@ CONTEXT.md                      — this session
 
 ---
 
-## SESSION 10 — 2026-10-17 — Check lughac m109 (constants) — open
+## SESSION 10 — 2026-10-17 — Check lughac m109 (constants) — closed
 
-Branch: main
+Branch: main, raw-constants (merged)
 
-(In progress.)
+### WHAT WAS DONE
+
+The owner reported global constants (lugha PR #66, tag m109; `const` is now a keyword). Checked: nothing here used `const` as a name; the suite passed unchanged on the new lughac. Probed: constants in any order and across modules (`geo.UNIT`, named imports), a `public const` `u8` compared with a `u8` at `-O0` and `-O2`, an array constant copied without changing it, `PRIMES[0] + 1`; E0445 (a call), E0446 (a cycle), E0501 (assignment), E0313 (private); shadowing by a local; an overflowing constant panics at its own line before `main` (exit 101). With the owner's go, made `wasmtime.raw`'s seven `#define`/enum stand-ins `public const` (`raw.WASMTIME_I64`, not `raw.WASMTIME_I64()`), test first (`test/raw.la` pins each to its header value), and turned `test/memory.la`'s `page()` into `PAGE`. Merged into `main`.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/raw.la                                   — 7 public consts; header comment updated (still 396 lines)
+src/instance.la src/message.la src/memory.la — raw.NAME instead of raw.NAME()
+test/raw.la                                  — new: 3 tests
+test/memory.la                               — PAGE
+CHANGELOG.md CONTEXT.md
+```
+
+### TESTS WRITTEN
+
+- `test/raw.la`: value kinds, extern kinds and the out-of-fuel trap code equal the v49.0.3 headers. 59/59 pass; `fmt --check` clean; `examples/log.la` builds.
+
+### DECISIONS MADE
+
+- None new (the owner chose to switch).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- `src/raw.la` at 396 lines. lughac gaps left to report: keyword field names, absent callbacks.
+- Branches `prp-001-core_runtime`, `prp-001-unit_results`, `raw-constants` are local only (all merged).
 
 ---
 
