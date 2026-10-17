@@ -238,6 +238,14 @@ CONTEXT.md MEMORY.md — this session; PRP-001 marked merged
 
 ---
 
+## SESSION 7 — 2026-10-17 — Publish to GitHub — open
+
+Branch: main
+
+(In progress.)
+
+---
+
 ## NEXT SESSION START POINT
 
 Open a session first. PRP-001 (the core runtime) is on `main`. Next work is whatever the owner asks for; any new binding needs a PRP, and `src/raw.la` (396 lines) must be split first, with the split proposed and approved. Report the lughac gaps in docs/specs/lughac-c-pointers.md if not done. Before any push or tag (none yet; no remote), ask the owner and check the real exit status of `lughac test test/`.
