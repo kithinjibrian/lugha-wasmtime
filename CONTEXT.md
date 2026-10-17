@@ -164,14 +164,48 @@ CONTEXT.md                      — this session
 
 ---
 
-## SESSION 5 — 2026-10-17 — Check lughac m103–m106; write PRP-001 — open
+## SESSION 5 — 2026-10-17 — Check lughac m103–m106; write and build PRP-001 — closed
 
-Branch: main, then prp-001-core_runtime
+Branch: main, then prp-001-core_runtime (not merged)
 
-(In progress.)
+### WHAT WAS DONE
+
+Checked lughac m103–m106 (`ptr`/`mut`, arrays, unions, `CPtr` with `c_read`/`c_write`, arrays in callbacks, nullable struct fields) with an end-to-end probe of the whole brief against libwasmtime at `-O0` and `-O2`; all needs met. Found and recorded: keyword field names, a NULL callback and no unit type (DECISION-007). The owner chose explicit `close()` for lifetimes (DECISION-006). Wrote PRP-001; the owner approved it. Built it test-first on `prp-001-core_runtime`. Two scope additions, each approved by the owner: `wasmtime_extern_delete` (extern.h requires it) and `wasmtime_error_wasm_trace` + `wasm_frame_vec_delete` (a host function's trap comes back as an *error*; its wasm backtrace tells it from bad arguments). Also added a running-guest counter so `Store.close()` from inside a host function panics instead of freeing a store wasmtime is using.
+
+### FILES CREATED OR MODIFIED
+
+```
+lugha.toml                — [link] libs = ["wasmtime"]
+src/raw.la                — 41 externs, 17 types, 7 constants from the v49.0.3 headers (396 lines: at the limit)
+src/lib.la                — the entry: re-exports the safe items, nothing from raw
+src/engine.la src/module.la src/linker.la src/instance.la src/memory.la src/message.la — the safe API
+test/engine.la test/module.la test/linker.la test/instance.la test/memory.la — 56 tests
+examples/log.la           — replaces examples/hello.la (.gitignore updated)
+PRPs/prp-001-core_runtime.md — the PRP, amended twice with approval
+DECISIONS.md MEMORY.md CHANGELOG.md README.md docs/specs/lughac-c-pointers.md
+```
+
+### TESTS WRITTEN
+
+- 56 `@test`s, all passing (`lughac test test/`, exit 0): every public function's happy path and every error variant, including out of fuel in an infinite loop, a guest load past its memory, host `Err` and bad host results as traps, `OutOfBounds` (past the end, overflow, after growth), and closing in every order.
+
+### DECISIONS MADE
+
+- DECISION-006 (explicit `close()`), DECISION-007 (header names Lugha can't spell; no unit type → `Result<i64, E>` with `Ok(0)`).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- `prp-001-core_runtime` isn't merged into `main` (awaiting the owner). No remote.
+- `src/raw.la` is at 396 lines: the next extern needs a split proposal first.
+- lughac gaps to report upstream (docs/specs/lughac-c-pointers.md): keyword field names, absent callbacks, a unit type; and lugha PRP-136's `of:`/`i32:` example doesn't compile.
+- Not tested: `Store.close()` panicking from inside a host function (checked by hand: clean panic, exit 101); a test can't expect a panic.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open a session first. PRP-001 is still blocked on lughac (DECISION-005). `docs/specs/lughac-c-pointers.md` lists what's done (out parameters, m102) and what's left, now including nullable pointer fields in an `extern struct` (E0437). When lughac ships more of it, check each new feature against libwasmtime with a scratchpad probe at `-O0` and `-O2` before relying on it. Once every need for the brief (session 3) is met, run discovery for PRP-001 and open the headers again for each extern. wasmtime v49.0.3 is installed.
+Open a session first. If the owner approved the merge, `prp-001-core_runtime` is on `main`; otherwise merge it after re-running `lughac fmt --check src examples test`, `lughac test test/` (check its real exit status) and building `examples/*.la`. PRP-001 is done: the next work is whatever the owner asks for next (likely Rapidkoi's shell using this package from `../rapidkoi`, which is that repo's work, not this one's). Any new binding needs a PRP, and `src/raw.la` must be split first (396 lines): propose `raw.la` re-exporting `raw/*.la` by header, or similar.
