@@ -305,14 +305,41 @@ DECISIONS.md MEMORY.md CHANGELOG.md PRPs/prp-001-core_runtime.md docs/specs/lugh
 
 ---
 
-## SESSION 9 — 2026-10-17 — Check lughac `()` patterns — open
+## SESSION 9 — 2026-10-17 — Check lughac `()` patterns — closed
 
 Branch: main
 
-(In progress.)
+### WHAT WAS DONE
+
+Between sessions the owner published the repository: https://github.com/kithinjibrian/lugha-wasmtime (public), `main` pushed at `363cd85`. The owner then reported `()` as a pattern (lugha PR #64, a PRP-139 addendum; no new tag, `m107` is still the latest). Checked: the grammar lists `"(" ")"` as a pattern; `let () = …`, `match … { () => … }`, `Some(())`, `if let Some(())`, `let ((), n)` and `Ok(())` all run; `()` against an `i64` is E0403; `Some(())` without `None` is E0417. lugha-wasmtime needs no change (its `Ok(_)` arms bind real values). Re-ran everything on the reinstalled lughac: `fmt --check` 0, `lughac test test/` 0 (56/56), `examples/log.la` builds.
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/specs/lughac-c-pointers.md — the unit gap is fully done
+CONTEXT.md                      — this session
+```
+
+### TESTS WRITTEN
+
+- None (56 existing pass).
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The GitHub repository has no description (the owner's `gh repo create` didn't set one).
+- `prp-001-core_runtime` and `prp-001-unit_results` are local only (both merged into `main`).
+- `src/raw.la` at 396 lines. lughac gaps left to report: keyword field names, absent callbacks.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open a session first. Everything is on `main`. If `git remote -v` is empty, the repository isn't published: ask the owner to run `gh repo create kithinjibrian/lugha-wasmtime --public --source . --remote origin --push` or allow it (check `lughac test test/`'s exit status first). Split `src/raw.la` (396 lines) before any new extern, with approval. Report the remaining lughac gaps in docs/specs/lughac-c-pointers.md.
+Open a session first. The repository is public at https://github.com/kithinjibrian/lugha-wasmtime and sessions now close with a push, after asking the owner and checking `lughac test test/`'s real exit status. PRP-001 is done on `main`. Split `src/raw.la` (396 lines) before any new extern, with approval. Report the two remaining lughac gaps in docs/specs/lughac-c-pointers.md.
