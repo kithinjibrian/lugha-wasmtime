@@ -270,14 +270,41 @@ CONTEXT.md — this session
 
 ---
 
-## SESSION 8 — 2026-10-17 — Check lughac m107 (unit type) — open
+## SESSION 8 — 2026-10-17 — Check lughac m107 (unit type) — closed
 
-Branch: main
+Branch: main, prp-001-unit_results (merged)
 
-(In progress.)
+### WHAT WAS DONE
+
+The owner reported lughac m107, the unit type `()` (lugha PR #63). Checked the spec and probed `Result<(), E>`, `Ok(())`, `?`, `assert_eq(…, Ok(()))` and `Ref<Result<(), E>>`: all work. `()` isn't a pattern (`Ok(()) =>` is E0201; `Ok(_)` works), as the grammar says. With the owner's go, switched `Store.set_fuel`, `Store.limit`, `Linker.define` and `Memory.write` from `Result<i64, E>`/`Ok(0)` to `Result<(), E>`/`Ok(())`, tests first, retiring DECISION-007 item 4. Merged into `main`.
+
+### FILES CREATED OR MODIFIED
+
+```
+src/engine.la src/memory.la src/linker.la — Result<(), E>
+test/engine.la test/memory.la test/linker.la — expect Ok(())
+DECISIONS.md MEMORY.md CHANGELOG.md PRPs/prp-001-core_runtime.md docs/specs/lughac-c-pointers.md
+```
+
+### TESTS WRITTEN
+
+- Existing tests now assert `Ok(())` from `set_fuel`, `limit`, `define` and `write`. 56/56 pass; `fmt --check` clean; `examples/log.la` builds and runs; no warnings.
+
+### DECISIONS MADE
+
+- DECISION-007 item 4 retired.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- Not published: no remote (session 7's `gh repo create` was denied by permissions; the owner runs it or allows it).
+- `src/raw.la` at 396 lines. lughac gaps left to report: keyword field names, absent callbacks, `()` as a pattern.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open a session first. If `git remote -v` shows no `origin`, the repository isn't published yet: ask the owner whether to retry `gh repo create kithinjibrian/lugha-wasmtime --public --source . --remote origin --push` (check `lughac test test/`'s real exit status first). Once a remote exists, sessions close with a push. Otherwise as before: PRP-001 is on `main`; split `src/raw.la` (396 lines) before any new extern; report the lughac gaps in docs/specs/lughac-c-pointers.md.
+Open a session first. Everything is on `main`. If `git remote -v` is empty, the repository isn't published: ask the owner to run `gh repo create kithinjibrian/lugha-wasmtime --public --source . --remote origin --push` or allow it (check `lughac test test/`'s exit status first). Split `src/raw.la` (396 lines) before any new extern, with approval. Report the remaining lughac gaps in docs/specs/lughac-c-pointers.md.
