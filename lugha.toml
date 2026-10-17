@@ -3,3 +3,7 @@
 name = "wasmtime"
 version = "0.1.0"
 source = "src"
+
+# wasmtime's C API v49.0.3, installed in /usr/local (DECISION-001).
+[link]
+libs = ["wasmtime"]

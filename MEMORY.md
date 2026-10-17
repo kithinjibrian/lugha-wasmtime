@@ -77,13 +77,23 @@ Read this at the start of every session before writing any code.
 
 ---
 
+### 8. Header names Lugha can't spell (DECISION-007)
+
+**Decision:** In `raw`, a C name that's a Lugha keyword gets a trailing `_` (`of_`, `i32_`, `private_`), `__private…` becomes `private…`; private pointers in union members are `u64` (lugha decision 110); `wasmtime_store_new`'s NULL finalizer is `Option<CPtr>`; no unit type, so "nothing" is `Result<i64, E>` with `Ok(0)`, as std does.
+
+**Why:** Lugha can't escape keywords, unions hold plain data, a callback can't be absent; none of it changes the bytes C sees.
+
+**Rules out:** Other renames; `u64` for any pointer Lugha passes or reads.
+
+---
+
 ## CURRENT PROJECT STATE
 
 ### Fully Working
-- `lughac init --lib` skeleton; context system (session 1).
+- Context system (session 1). On the PRP-001 branch: the whole core runtime.
 
-### In Review
-- PRP-001 (core runtime), proposed session 5; lughac m102–m106 cover all of it (probed against libwasmtime).
+### Built, awaiting merge
+- PRP-001 (core runtime), session 5, branch `prp-001-core_runtime`: 56 tests pass, `fmt --check` clean, `examples/log.la` builds and runs. Not merged to `main` yet.
 
 ---
 

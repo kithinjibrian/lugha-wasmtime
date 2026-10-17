@@ -1,0 +1,72 @@
+// A guest that logs through its host. The guest passes (pointer, length)
+// into its own memory; the host reads those bytes, bounds-checked, and
+// prints them. The store gets a fuel budget and a memory cap, so a guest
+// that loops or grows forever stops with an error instead of hanging.
+// Run it with `lughac run examples/log.la`.
+import wasmtime { Engine, Store, Limits, Module, Linker, Caller, Val, ValType };
+
+/** The guest: says hello through `env.log`, then loops until its fuel runs out. */
+fun guest(): string = "(module (import \"env\" \"log\" (func $log (param i32 i32))) (memory (export \"memory\") 1) (data (i32.const 0) \"hello from the guest\") (func (export \"run\") (call $log (i32.const 0) (i32.const 20))) (func (export \"spin\") (loop $l (br $l))))";
+
+/** `env.log(ptr, len)`: prints `len` bytes of the guest's memory at `ptr`. */
+fun log(caller: Caller, args: Val[]): Result<Val[], string> {
+    let (ptr, len) = match (args[0], args[1]) {
+        (I32(p), I32(n)) => (p as u32 as u64, n as u32 as u64),
+        _ => {
+            return Err("log takes (i32 pointer, i32 length)");
+        }
+    };
+    let memory = match caller.memory("memory") {
+        Ok(m) => m,
+        Err(e) => {
+            return Err("log: the guest has no memory: {e}");
+        }
+    };
+    // The guest chose `ptr` and `len`; `read` refuses anything past its memory.
+    match memory.read(ptr, len) {
+        Ok(bytes) => {
+            println("guest says: {string_from_utf8(bytes).unwrap_or("<not UTF-8>")}");
+            Ok([])
+        }
+        Err(e) => Err("log: {e}"),
+    }
+}
+
+fun main() {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    store.set_fuel(1000000).unwrap();
+    store.limit(Limits {
+        memory_bytes: Some(16 * 65536),
+        instances: Some(1),
+        ..Limits.none(),
+    }).unwrap();
+
+    let linker = Linker.new(engine).unwrap();
+    linker.define("env", "log", [ValType.I32, ValType.I32], [], log).unwrap();
+
+    match Module.from_text(engine, guest()) {
+        Ok(module) => {
+            match linker.instantiate(store, module) {
+                Ok(instance) => {
+                    match instance.call("run", []) {
+                        Ok(_) => println("run: ok, fuel left {store.fuel().unwrap()}"),
+                        Err(e) => println("run failed: {e}"),
+                    }
+                    match instance.call("spin", []) {
+                        Err(OutOfFuel) => println("spin: stopped, out of fuel"),
+                        Err(e) => println("spin failed: {e}"),
+                        Ok(_) => println("spin: returned, which it never should"),
+                    }
+                }
+                Err(e) => println("instantiate failed: {e}"),
+            }
+            module.close();
+        }
+        Err(e) => println("compile failed: {e}"),
+    }
+
+    linker.close();
+    store.close();
+    engine.close();
+}

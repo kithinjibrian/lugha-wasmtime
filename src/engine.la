@@ -1,0 +1,228 @@
+/**
+ * Engines and stores: where guests run, how much fuel they get, and how much
+ * memory, table space and how many instances a store may hold. Not responsible
+ * for modules, linking or calls.
+ *
+ * Every handle here is freed by `close()`, once: copies share a live flag, so
+ * closing a copy closes them all and a second close does nothing (DECISION-006).
+ *
+ * Depends on: raw, message
+ * Used by: module, linker, instance, memory, lib
+ */
+
+import raw;
+import message;
+
+/**
+ * Compiles WebAssembly. One is enough for a program; modules and stores are
+ * made from it. Fuel consumption is always on.
+ */
+public struct Engine {
+    handle: raw.wasm_engine_t,
+    live: Ref<bool>,
+}
+
+impl Engine {
+    /**
+     * Makes an engine with fuel consumption on, so every store can be given a budget.
+     *
+     * @returns the engine; free it with `close()`
+     *
+     * Example:
+     *     let engine = Engine.new();
+     */
+    public fun new(): Engine {
+        let config = raw.wasm_config_new();
+        raw.wasmtime_config_consume_fuel_set(config, true);
+        Engine { handle: raw.wasm_engine_new_with_config(config), live: Ref.new(true) }
+    }
+
+    /**
+     * Frees the engine. Stores and modules already made from it keep working
+     * (wasmtime keeps it alive for them); new ones can't be made. Closing twice
+     * does nothing.
+     *
+     * Example:
+     *     engine.close();
+     */
+    public fun close(self) {
+        if self.live.get() {
+            self.live.set(false);
+            raw.wasm_engine_delete(self.handle);
+        }
+    }
+
+    /** Whether `close()` hasn't been called. */
+    fun is_live(self): bool = self.live.get();
+}
+
+/** Why a store operation failed. */
+public enum StoreError {
+    /** The store, or the engine it is being made from, was closed. */
+    Closed,
+}
+
+/**
+ * Resource limits for one store. `None` keeps wasmtime's default.
+ * Start from `Limits.none()`: `Limits { memory_bytes: Some(1048576), ..Limits.none() }`.
+ */
+public struct Limits {
+    /** The most bytes any one linear memory may grow to. */
+    public memory_bytes: Option<i64>,
+    /** The most elements any one table may grow to. */
+    public table_elements: Option<i64>,
+    /** The most instances the store may hold. */
+    public instances: Option<i64>,
+    /** The most tables the store may hold. */
+    public tables: Option<i64>,
+    /** The most linear memories the store may hold. */
+    public memories: Option<i64>,
+}
+
+impl Limits {
+    /**
+     * Returns limits that keep every one of wasmtime's defaults.
+     *
+     * Example:
+     *     Limits { instances: Some(1), ..Limits.none() }
+     */
+    public fun none(): Limits = Limits {
+        memory_bytes: None,
+        table_elements: None,
+        instances: None,
+        tables: None,
+        memories: None,
+    };
+}
+
+/** `wasmtime_store_limiter` takes a negative number for "keep the default". */
+fun limit_value(limit: Option<i64>): i64 = limit.unwrap_or(-1);
+
+/**
+ * Holds running guests: their instances, memories and fuel. Use one per
+ * guest you want isolated. A new store has no fuel, so nothing runs in it
+ * until `set_fuel`.
+ */
+public struct Store {
+    handle: raw.wasmtime_store_t,
+    context: raw.wasmtime_context_t,
+    live: Ref<bool>,
+    running: Ref<i64>,
+}
+
+impl Store {
+    /**
+     * Makes an empty store with no fuel and wasmtime's default limits.
+     *
+     * @returns the store, freed with `close()`; `Err(Closed)` if `engine` was closed
+     *
+     * Example:
+     *     let store = Store.new(engine)?;
+     */
+    public fun new(engine: Engine): Result<Store, StoreError> {
+        if !engine.is_live() {
+            return Err(StoreError.Closed);
+        }
+        let handle = raw.wasmtime_store_new(engine.handle, None, None);
+        Ok(Store {
+            handle: handle,
+            context: raw.wasmtime_store_context(handle),
+            live: Ref.new(true),
+            running: Ref.new(0),
+        })
+    }
+
+    /**
+     * Sets the fuel guests in this store may spend before they stop with
+     * an out-of-fuel error. Each WebAssembly instruction costs about one unit.
+     *
+     * @param fuel the units left, replacing what was there
+     * @returns `Ok(0)`; `Err(Closed)` if the store was closed
+     *
+     * Example:
+     *     store.set_fuel(1000000)?;
+     */
+    public fun set_fuel(self, fuel: u64): Result<i64, StoreError> {
+        if !self.live.get() {
+            return Err(StoreError.Closed);
+        }
+        if let Some(error) = raw.wasmtime_context_set_fuel(self.context, fuel) {
+            panic("wasmtime: fuel isn't enabled on this engine: {message.error_text(error)}");
+        }
+        Ok(0)
+    }
+
+    /**
+     * Returns the fuel guests in this store have left.
+     *
+     * @returns the units left; `Err(Closed)` if the store was closed
+     *
+     * Example:
+     *     let left = store.fuel()?;
+     */
+    public fun fuel(self): Result<u64, StoreError> {
+        if !self.live.get() {
+            return Err(StoreError.Closed);
+        }
+        let mut fuel: u64 = 0;
+        if let Some(error) = raw.wasmtime_context_get_fuel(self.context, out fuel) {
+            panic("wasmtime: fuel isn't enabled on this engine: {message.error_text(error)}");
+        }
+        Ok(fuel)
+    }
+
+    /**
+     * Caps the store's resources. A memory or table growing past its cap fails
+     * in the guest; an instantiation needing more fails with an error.
+     *
+     * @returns `Ok(0)`; `Err(Closed)` if the store was closed
+     *
+     * Example:
+     *     store.limit(Limits { memory_bytes: Some(16 * 65536), ..Limits.none() })?;
+     */
+    public fun limit(self, limits: Limits): Result<i64, StoreError> {
+        if !self.live.get() {
+            return Err(StoreError.Closed);
+        }
+        raw.wasmtime_store_limiter(
+            self.handle,
+            limit_value(limits.memory_bytes),
+            limit_value(limits.table_elements),
+            limit_value(limits.instances),
+            limit_value(limits.tables),
+            limit_value(limits.memories),
+        );
+        Ok(0)
+    }
+
+    /**
+     * Frees the store and everything in it. Its instances and memories then
+     * answer `Err(Closed)`. Closing twice does nothing. Panics if called from
+     * a host function while a guest in this store is running.
+     *
+     * Example:
+     *     store.close();
+     */
+    public fun close(self) {
+        // Freeing the store under a running guest would be a use-after-free in wasmtime.
+        if self.running.get() > 0 {
+            panic(
+                "wasmtime: Store.close() called from a host function while a guest in that store is running",
+            );
+        }
+        if self.live.get() {
+            self.live.set(false);
+            raw.wasmtime_store_delete(self.handle);
+        }
+    }
+
+    /** Marks guest code as running in this store, so `close()` refuses until `leave()`. */
+    fun enter(self) {
+        self.running.update(fun(n: i64): i64 = n + 1);
+    }
+
+    /** Ends what `enter()` began. */
+    fun leave(self) {
+        self.running.update(fun(n: i64): i64 = n - 1);
+    }
+}

@@ -1,6 +1,6 @@
 # PRP-001 — Core runtime: run untrusted WebAssembly from Lugha
 
-**Status:** proposed 2026-10-17 (session 5). Brief: the owner's, recorded in CONTEXT.md session 3.
+**Status:** built 2026-10-17 (session 5) on `prp-001-core_runtime`; approved with DECISION-007. Brief: the owner's, recorded in CONTEXT.md session 3.
 
 ## FEATURE: Compile, link, instantiate and call WebAssembly modules with fuel, store limits, host functions and bounds-checked guest memory.
 
@@ -56,6 +56,8 @@ fun main() {
   - `wasmtime/module.h`: `wasmtime_module_new`, `wasmtime_module_delete`
   - `wasmtime/linker.h`: `wasmtime_linker_new`, `wasmtime_linker_define_func`, `wasmtime_linker_instantiate`, `wasmtime_linker_delete`
   - `wasmtime/instance.h`: `wasmtime_instance_export_get`
+  - `wasmtime/error.h`: `wasmtime_error_wasm_trace`, with `wasm.h`'s `wasm_frame_vec_t` and `wasm_frame_vec_delete` (added during the build with the owner's approval: a host function's trap comes back as an *error* from `wasmtime_func_call`/`wasmtime_linker_instantiate`, and only its wasm backtrace tells it from bad arguments or a link failure)
+  - `wasmtime/extern.h`: `wasmtime_extern_delete` (added during the build with the owner's approval: extern.h requires it for every returned `wasmtime_extern_t`)
   - `wasmtime/func.h`: `wasmtime_func_call`, `wasmtime_func_type`, `wasmtime_caller_export_get`, `wasmtime_caller_context`, and the callback type `wasmtime_func_callback_t`
   - `wasmtime/memory.h`: `wasmtime_memory_data`, `wasmtime_memory_data_size`
   - Types: `wasm_byte_vec_t`, `wasm_valtype_vec_t`, `wasmtime_instance_t`, `wasmtime_func_t`, `wasmtime_memory_t`, `wasmtime_global_t`, `wasmtime_table_t`, `wasmtime_tag_t`, `wasmtime_anyref_t`/`externref`/`exnref`, `wasmtime_valunion_t`, `wasmtime_val_t`, `wasmtime_extern_union_t`, `wasmtime_extern_t`, with the constants `WASMTIME_I32`, `WASMTIME_I64`, `WASMTIME_EXTERN_FUNC`, `WASMTIME_EXTERN_MEMORY`, `WASMTIME_TRAP_CODE_OUT_OF_FUEL`, `WASM_I32`, `WASM_I64`. Unions are declared in full (the installed `conf.h` defines `WASMTIME_FEATURE_GC`), so sizes match C: `wasmtime_val_t` 32 bytes, `wasmtime_extern_t` 32 bytes, `wasmtime_memory_t` 24 bytes (measured with a C program).
@@ -71,20 +73,23 @@ fun main() {
   | `wasmtime_error_t *` (any result) | the caller | `wasmtime_error_delete`, immediately after reading its message |
   | `wasm_trap_t *` (out-param, or our host function's result) | the caller; a trap returned from a host function is taken by wasmtime | `wasm_trap_delete`, immediately after reading its message |
   | `wasm_byte_vec_t` (wat2wasm, messages) | the caller | `wasm_byte_vec_delete`, after `c_read` |
+  | `wasm_frame_vec_t` (`wasmtime_error_wasm_trace`) | the caller | `wasm_frame_vec_delete`, after reading its size |
   | `wasm_valtype_t *` | consumed by `wasm_valtype_vec_new` | — |
   | `wasm_valtype_vec_t` | consumed by `wasm_functype_new` (passed `mut`) | — |
   | `wasm_functype_t *` (ours, and from `wasmtime_func_type`) | the caller | `wasm_functype_delete`, after `define_func` copies it / after reading counts |
+  | `wasmtime_extern_t` (from `*_export_get`) | the caller | `wasmtime_extern_delete`, right after copying out the func or memory (which have no destructor, so the copies stay valid) |
   | `wasmtime_caller_t *` | wasmtime, during the host call only | never |
   | `uint8_t *` from `wasmtime_memory_data` | the store | never; used for one `c_read`/`c_write` right after a bounds check |
   | host closure (`data`/`release`) | lughac's pin | wasmtime calls `release` when the linker and every store using it are gone |
 - **Lugha spec sections relied on:** §8 `out`/`ptr`/`mut` parameters (m102–m103), arrays and `extern union` (m104), `CPtr`, `c_read`, `c_write`, arrays and `Ref<T[]>` in callbacks (m105), `Option` of a handle in extern struct fields (m106), callbacks with `data`/`release` (v16); §3 enums with payloads, struct update syntax; §4 `Ref<T>`, `checked_add`; §6 visibility (package-level fields hide raw handles from other packages); §9 `@test`, `skip`.
 - **Decisions:** DECISION-001–003, 005 (resolved). DECISION-006 (lifetimes: explicit `close()`, resolved this session). This PRP asks approval for **DECISION-007** (below).
 
-### DECISION-007 — two places `raw` can't match the header text exactly (approve with this PRP)
+### DECISION-007 — places `raw` can't match the header text exactly (approve with this PRP)
 
 1. **Keywords as field names.** Lugha has no way to escape a keyword, and the headers use `of`, `i32`, `i64`, `f32`, `f64` and `__private`. `raw` adds a trailing `_` to any C name that's a Lugha keyword (`of_`, `i32_`, `private_`) and drops the leading `__` from private names (`__private1` → `private1`). Field order, types and layout are unchanged, so C sees the same bytes. lugha's own tests rename these too (`int64`, `value`).
 2. **Pointers C keeps private**, inside union members, are `u64` (`wasmtime_func_t.__private`, `anyref.__private3`, `sharedmemory`), per lugha decision 110: unions hold plain data, and only C ever follows these.
 3. **A NULL function pointer.** `wasmtime_store_new`'s `finalizer` is `void (*)(void *)`. We always pass NULL, and a Lugha callback can't be absent, so it's declared `Option<CPtr>` and passed `None` (the same pointer-sized NULL). `data` is `Option<CPtr>`, `None`. I'll report both naming and NULL callbacks to lughac as gaps; neither blocks this PRP.
+4. **No unit type** (found during the build, the owner's choice): every `Result<(), E>` below is `Result<i64, E>` returning `Ok(0)`, as std does.
 
 ## IMPLEMENTATION REQUIREMENTS
 
@@ -126,12 +131,12 @@ fun main() {
 | `LinkError` | `Closed` | linker, store, module or engine closed |
 | | `Define(msg)` | `wasmtime_linker_define_func` error (e.g. the name is already defined) |
 | | `Instantiate(msg)` | `wasmtime_linker_instantiate` error: missing import, wrong import type, store limit exceeded |
-| | `Trap(msg)` | the start function trapped |
+| | `Trap(msg)` | the start function trapped, or a host function it called failed (an error with a wasm backtrace) |
 | | `OutOfFuel` | the start function ran out of fuel (trap code 11) |
 | `CallError` | `Closed` | store closed |
 | | `MissingExport(name)` | no export by that name |
 | | `NotAFunction(name)` | the export isn't a function |
-| | `Arguments(msg)` | wrong argument count (checked by us) or type (wasmtime's error) |
+| | `Arguments(msg)` | wrong argument count (checked by us) or type (wasmtime's error without a wasm backtrace) |
 | | `UnsupportedType(msg)` | the function returns something other than i32/i64 |
 | | `Trap(msg)` | any trap but fuel: `unreachable`, out-of-bounds guest access, a host `Err` |
 | | `OutOfFuel` | trap code 11 |
@@ -151,11 +156,11 @@ fun main() {
 
 ## TESTS TO WRITE (before the code, inline `.wat`)
 
-- [ ] `test/engine.la`: a store's fuel set and read back; `Limits` applied (a module asking for more memory fails to instantiate, `Instantiate`); `StoreError.Closed` after `close`; `close` twice is harmless; closing the engine leaves an existing store working.
-- [ ] `test/module.la`: from bytes (bytes got from a known module) and from text; `Text`; `Wasm` (truncated bytes, and a module that fails validation); `Closed`; closing a module leaves its instance working.
-- [ ] `test/linker.la`: a host `add(i64, i64) -> i64` called by a guest; a host `log(ptr, len)` reading the caller's memory; host `Err(msg)` becomes `CallError.Trap(msg)`; host results of the wrong count or type become a trap; a `Caller` memory used after the call is `Closed`; `Define` (same name twice); `Instantiate` (missing import); `Trap` and `OutOfFuel` from a start function; `Closed`; host functions still work after `linker.close()`.
-- [ ] `test/instance.la`: i32 and i64 arguments and results (negative values too); `MissingExport`; `NotAFunction`; `Arguments` (count, type); `UnsupportedType` (an f32 result); `Trap` (`unreachable`; a guest load past its memory); `OutOfFuel` (an infinite loop stops); `Closed` after `store.close()`; fuel is consumed by calls.
-- [ ] `test/memory.la`: `size`; `write` then `read`; the guest sees the host's write and the host sees the guest's; `OutOfBounds` for read, write, an offset past the end, and `offset + len` overflowing `u64`; a zero-length access at the end is `Ok`; after the guest grows its memory (`memory.grow`), a formerly out-of-bounds read works; `MissingExport`, `NotAMemory`, `Closed`.
+- [x] `test/engine.la`: a store's fuel set and read back; `Limits` applied (a module asking for more memory fails to instantiate, `Instantiate`); `StoreError.Closed` after `close`; `close` twice is harmless; closing the engine leaves an existing store working.
+- [x] `test/module.la`: from bytes (bytes got from a known module) and from text; `Text`; `Wasm` (truncated bytes, and a module that fails validation); `Closed`; closing a module leaves its instance working.
+- [x] `test/linker.la`: a host `add(i64, i64) -> i64` called by a guest; a host `log(ptr, len)` reading the caller's memory; host `Err(msg)` becomes `CallError.Trap(msg)`; host results of the wrong count or type become a trap; a `Caller` memory used after the call is `Closed`; `Define` (same name twice); `Instantiate` (missing import); `Trap` and `OutOfFuel` from a start function; `Closed`; host functions still work after `linker.close()`.
+- [x] `test/instance.la`: i32 and i64 arguments and results (negative values too); `MissingExport`; `NotAFunction`; `Arguments` (count, type); `UnsupportedType` (an f32 result); `Trap` (`unreachable`; a guest load past its memory); `OutOfFuel` (an infinite loop stops); `Closed` after `store.close()`; fuel is consumed by calls.
+- [x] `test/memory.la`: `size`; `write` then `read`; the guest sees the host's write and the host sees the guest's; `OutOfBounds` for read, write, an offset past the end, and `offset + len` overflowing `u64`; a zero-length access at the end is `Ok`; after the guest grows its memory (`memory.grow`), a formerly out-of-bounds read works; `MissingExport`, `NotAMemory`, `Closed`.
 
 ## ROLLBACK PLAN
 
@@ -164,14 +169,14 @@ fun main() {
 
 ## ACCEPTANCE CRITERIA
 
-- [ ] Every item in Must Do works, as shown by the tests above.
-- [ ] Every extern checked against the v49.0.3 headers, line by line, during the build.
-- [ ] Every public function has a happy-path test, and every error variant has one.
-- [ ] `lughac test test/` passes; `examples/log.la` builds and runs.
-- [ ] `lughac fmt --check src examples test` is clean.
-- [ ] Every `public` item has a `/** … */` doc comment (docs/CODE_STYLE.md).
-- [ ] No file over 400 lines.
-- [ ] CHANGELOG.md, MEMORY.md and DECISIONS.md (006, 007) are updated.
+- [x] Every item in Must Do works, as shown by the tests above.
+- [x] Every extern checked against the v49.0.3 headers, line by line, during the build.
+- [x] Every public function has a happy-path test, and every error variant has one.
+- [x] `lughac test test/` passes; `examples/log.la` builds and runs.
+- [x] `lughac fmt --check src examples test` is clean.
+- [x] Every `public` item has a `/** … */` doc comment (docs/CODE_STYLE.md).
+- [x] No file over 400 lines.
+- [x] CHANGELOG.md, MEMORY.md and DECISIONS.md (006, 007) are updated.
 
 ## VALIDATION
 

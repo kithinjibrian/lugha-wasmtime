@@ -1,0 +1,287 @@
+/**
+ * Tests for `wasmtime.linker`: host functions, the caller's memory,
+ * instantiation and its errors, and closing.
+ */
+
+import wasmtime {
+    Engine,
+    Store,
+    Module,
+    Linker,
+    LinkError,
+    Instance,
+    Caller,
+    Val,
+    ValType,
+    CallError,
+    MemoryError,
+    Memory,
+};
+
+/** A guest importing `env.add(i64, i64) -> i64` and `env.log(ptr, len)`, with "hello host" at byte 16. */
+fun guest(): string = "(module (import \"env\" \"add\" (func $add (param i64 i64) (result i64))) (import \"env\" \"log\" (func $log (param i32 i32))) (memory (export \"memory\") 1) (data (i32.const 16) \"hello host\") (func (export \"sum\") (param i64 i64) (result i64) (call $add (local.get 0) (local.get 1))) (func (export \"hello\") (call $log (i32.const 16) (i32.const 10))))";
+
+/** An engine, a store with fuel, and a linker. */
+fun parts(): (Engine, Store, Linker) {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    store.set_fuel(100000).unwrap();
+    (engine, store, Linker.new(engine).unwrap())
+}
+
+/** Defines `env.add` as `f`. */
+fun define_add(linker: Linker, f: fun(Caller, Val[]): Result<Val[], string>) {
+    linker.define("env", "add", [ValType.I64, ValType.I64], [ValType.I64], f).unwrap();
+}
+
+/** Adds two `I64`s. */
+fun add(caller: Caller, args: Val[]): Result<Val[], string> {
+    match (args[0], args[1]) {
+        (I64(a), I64(b)) => Ok([Val.I64(a + b)]),
+        _ => Err("add takes two i64s"),
+    }
+}
+
+/** A `log` that ignores its arguments. */
+fun quiet(caller: Caller, args: Val[]): Result<Val[], string> = Ok([]);
+
+/** Instantiates `guest()` with `add` and `log` defined as given. */
+fun with_host(log: fun(Caller, Val[]): Result<Val[], string>): (Engine, Store, Linker, Instance) {
+    let (engine, store, linker) = parts();
+    define_add(linker, add);
+    linker.define("env", "log", [ValType.I32, ValType.I32], [], log).unwrap();
+    let module = Module.from_text(engine, guest()).unwrap();
+    let instance = linker.instantiate(store, module).unwrap();
+    module.close();
+    (engine, store, linker, instance)
+}
+
+/** Closes everything `with_host` made. */
+fun close_all(engine: Engine, store: Store, linker: Linker) {
+    linker.close();
+    store.close();
+    engine.close();
+}
+
+@test
+fun a_guest_calls_a_host_function() {
+    let (engine, store, linker, instance) = with_host(quiet);
+    assert_eq(instance.call("sum", [Val.I64(40), Val.I64(2)]), Ok([Val.I64(42)]));
+    assert_eq(instance.call("sum", [Val.I64(-50), Val.I64(8)]), Ok([Val.I64(-42)]));
+    close_all(engine, store, linker);
+}
+
+@test
+fun a_host_function_reads_the_callers_memory() {
+    let seen = Ref.new("");
+    let (engine, store, linker, instance) = with_host(fun(
+        caller: Caller,
+        args: Val[],
+    ): Result<Val[], string> {
+        let memory = caller.memory("memory").unwrap();
+        match (args[0], args[1]) {
+            (I32(ptr), I32(len)) => {
+                let bytes = memory.read(ptr as u32 as u64, len as u32 as u64).unwrap();
+                seen.set(string_from_utf8(bytes).unwrap());
+                Ok([])
+            }
+            _ => Err("log takes two i32s"),
+        }
+    });
+    assert_eq(instance.call("hello", []), Ok([]));
+    assert_eq(seen.get(), "hello host");
+    close_all(engine, store, linker);
+}
+
+@test
+fun a_host_error_traps_the_guest() {
+    let (engine, store, linker, instance) = with_host(
+        fun(caller: Caller, args: Val[]): Result<Val[], string> = Err("no logging today"),
+    );
+    match instance.call("hello", []) {
+        Err(Trap(msg)) => assert(msg.contains("no logging today")),
+        _ => assert(false),
+    }
+    close_all(engine, store, linker);
+}
+
+@test
+fun host_results_of_the_wrong_count_trap() {
+    let (engine, store, linker, instance) = with_host(
+        fun(caller: Caller, args: Val[]): Result<Val[], string> = Ok([Val.I32(1)]),
+    );
+    match instance.call("hello", []) {
+        Err(Trap(msg)) => assert(msg.contains("env.log returned 1 results, expected 0")),
+        _ => assert(false),
+    }
+    close_all(engine, store, linker);
+}
+
+@test
+fun host_results_of_the_wrong_type_trap() {
+    let (engine, store, linker) = parts();
+    define_add(linker, fun(caller: Caller, args: Val[]): Result<Val[], string> = Ok([Val.I32(1)]));
+    linker.define("env", "log", [ValType.I32, ValType.I32], [], quiet).unwrap();
+    let module = Module.from_text(engine, guest()).unwrap();
+    let instance = linker.instantiate(store, module).unwrap();
+    match instance.call("sum", [Val.I64(1), Val.I64(2)]) {
+        Err(Trap(msg)) => assert(msg.contains("env.add returned i32 as result 0, expected i64")),
+        _ => assert(false),
+    }
+    module.close();
+    close_all(engine, store, linker);
+}
+
+@test
+fun a_callers_memory_is_closed_after_the_call() {
+    let kept: Ref<Option<Memory>> = Ref.new(None);
+    let (engine, store, linker, instance) = with_host(fun(
+        caller: Caller,
+        args: Val[],
+    ): Result<Val[], string> {
+        kept.set(Some(caller.memory("memory").unwrap()));
+        Ok([])
+    });
+    instance.call("hello", []).unwrap();
+    match kept.get() {
+        Some(memory) => assert_eq(memory.read(16, 5), Err(MemoryError.Closed)),
+        None => assert(false),
+    }
+    close_all(engine, store, linker);
+}
+
+@test
+fun a_caller_without_that_memory_is_an_error() {
+    let result: Ref<Result<u64, string>> = Ref.new(Ok(0 as u64));
+    let (engine, store, linker, instance) = with_host(fun(
+        caller: Caller,
+        args: Val[],
+    ): Result<Val[], string> {
+        match caller.memory("nope") {
+            Err(MissingExport(name)) => result.set(Ok(name.len as u64)),
+            _ => result.set(Err("wrong error")),
+        }
+        Ok([])
+    });
+    instance.call("hello", []).unwrap();
+    assert_eq(result.get(), Ok(4 as u64));
+    close_all(engine, store, linker);
+}
+
+@test
+fun defining_a_name_twice_is_a_define_error() {
+    let (engine, store, linker) = parts();
+    define_add(linker, add);
+    match linker.define("env", "add", [ValType.I64, ValType.I64], [ValType.I64], add) {
+        Err(Define(msg)) => assert(msg.contains("add")),
+        _ => assert(false),
+    }
+    close_all(engine, store, linker);
+}
+
+@test
+fun a_missing_import_is_an_instantiate_error() {
+    let (engine, store, linker) = parts();
+    let module = Module.from_text(engine, guest()).unwrap();
+    match linker.instantiate(store, module) {
+        Err(Instantiate(msg)) => assert(msg.contains("env::add")),
+        _ => assert(false),
+    }
+    module.close();
+    close_all(engine, store, linker);
+}
+
+@test
+fun a_trapping_start_function_is_a_trap_error() {
+    let (engine, store, linker) = parts();
+    let module = Module.from_text(engine, "(module (func $s unreachable) (start $s))").unwrap();
+    match linker.instantiate(store, module) {
+        Err(Trap(msg)) => assert(msg.contains("unreachable")),
+        _ => assert(false),
+    }
+    module.close();
+    close_all(engine, store, linker);
+}
+
+@test
+fun a_host_error_in_a_start_function_is_a_trap_error() {
+    let (engine, store, linker) = parts();
+    linker.define(
+        "env",
+        "log",
+        [ValType.I32, ValType.I32],
+        [],
+        fun(caller: Caller, args: Val[]): Result<Val[], string> = Err("not at start"),
+    ).unwrap();
+    let module = Module.from_text(
+        engine,
+        "(module (import \"env\" \"log\" (func $log (param i32 i32))) (func $s (call $log (i32.const 0) (i32.const 0))) (start $s))",
+    ).unwrap();
+    match linker.instantiate(store, module) {
+        Err(Trap(msg)) => assert(msg.contains("not at start")),
+        _ => assert(false),
+    }
+    module.close();
+    close_all(engine, store, linker);
+}
+
+@test
+fun a_start_function_without_fuel_is_out_of_fuel() {
+    let (engine, store, linker) = parts();
+    let module = Module.from_text(
+        engine,
+        "(module (func $s (loop $l (br $l))) (start $s))",
+    ).unwrap();
+    match linker.instantiate(store, module) {
+        Err(OutOfFuel) => {}
+        _ => assert(false),
+    }
+    module.close();
+    close_all(engine, store, linker);
+}
+
+@test
+fun a_closed_linker_is_an_error() {
+    let (engine, store, linker) = parts();
+    let module = Module.from_text(engine, "(module)").unwrap();
+    linker.close();
+    linker.close();
+    match linker.define("env", "add", [ValType.I64, ValType.I64], [ValType.I64], add) {
+        Err(Closed) => {}
+        _ => assert(false),
+    }
+    match linker.instantiate(store, module) {
+        Err(Closed) => {}
+        _ => assert(false),
+    }
+    module.close();
+    store.close();
+    engine.close();
+}
+
+@test
+fun a_closed_store_or_engine_is_a_link_error() {
+    let (engine, store, linker) = parts();
+    let module = Module.from_text(engine, "(module)").unwrap();
+    store.close();
+    match linker.instantiate(store, module) {
+        Err(Closed) => {}
+        _ => assert(false),
+    }
+    linker.close();
+    engine.close();
+    match Linker.new(engine) {
+        Err(Closed) => {}
+        _ => assert(false),
+    }
+    module.close();
+}
+
+@test
+fun host_functions_outlive_their_linker() {
+    let (engine, store, linker, instance) = with_host(quiet);
+    linker.close();
+    assert_eq(instance.call("sum", [Val.I64(1), Val.I64(2)]), Ok([Val.I64(3)]));
+    store.close();
+    engine.close();
+}

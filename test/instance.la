@@ -1,0 +1,135 @@
+/**
+ * Tests for `wasmtime.instance`: calling exports with i32/i64 values, and
+ * every way a call fails.
+ */
+
+import wasmtime { Engine, Store, Module, Linker, Instance, Val, CallError };
+
+/** A guest with functions of each shape the tests call. */
+fun guest(): string = "(module (memory (export \"memory\") 1) (func (export \"echo32\") (param i32) (result i32) (local.get 0)) (func (export \"echo64\") (param i64) (result i64) (local.get 0)) (func (export \"pair\") (param i32 i64) (result i64 i32) (local.get 1) (local.get 0)) (func (export \"nothing\")) (func (export \"half\") (result f32) (f32.const 0.5)) (func (export \"takes_f32\") (param f32)) (func (export \"boom\") unreachable) (func (export \"far\") (result i32) (i32.load (i32.const 70000))) (func (export \"spin\") (loop $l (br $l))))";
+
+/** An engine, a store with `fuel`, and an instance of `guest()`. */
+fun start(fuel: u64): (Engine, Store, Instance) {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    store.set_fuel(fuel).unwrap();
+    let module = Module.from_text(engine, guest()).unwrap();
+    let linker = Linker.new(engine).unwrap();
+    let instance = linker.instantiate(store, module).unwrap();
+    linker.close();
+    module.close();
+    (engine, store, instance)
+}
+
+/** Closes what `start` made. */
+fun stop(engine: Engine, store: Store) {
+    store.close();
+    engine.close();
+}
+
+@test
+fun i32_and_i64_values_round_trip() {
+    let (engine, store, instance) = start(100000);
+    assert_eq(instance.call("echo32", [Val.I32(-7)]), Ok([Val.I32(-7)]));
+    assert_eq(instance.call("echo32", [Val.I32(i32.MAX)]), Ok([Val.I32(i32.MAX)]));
+    assert_eq(instance.call("echo64", [Val.I64(i64.MIN)]), Ok([Val.I64(i64.MIN)]));
+    assert_eq(instance.call("pair", [Val.I32(3), Val.I64(-4)]), Ok([Val.I64(-4), Val.I32(3)]));
+    assert_eq(instance.call("nothing", []), Ok([]));
+    stop(engine, store);
+}
+
+@test
+fun a_missing_export_is_an_error() {
+    let (engine, store, instance) = start(100000);
+    assert_eq(instance.call("nope", []), Err(CallError.MissingExport("nope")));
+    stop(engine, store);
+}
+
+@test
+fun an_export_that_isnt_a_function_is_an_error() {
+    let (engine, store, instance) = start(100000);
+    assert_eq(instance.call("memory", []), Err(CallError.NotAFunction("memory")));
+    stop(engine, store);
+}
+
+@test
+fun the_wrong_argument_count_is_an_error() {
+    let (engine, store, instance) = start(100000);
+    assert_eq(
+        instance.call("echo32", []),
+        Err(CallError.Arguments("echo32 takes 1 arguments, got 0")),
+    );
+    assert_eq(
+        instance.call("echo32", [Val.I32(1), Val.I32(2)]),
+        Err(CallError.Arguments("echo32 takes 1 arguments, got 2")),
+    );
+    stop(engine, store);
+}
+
+@test
+fun the_wrong_argument_type_is_an_error() {
+    let (engine, store, instance) = start(100000);
+    match instance.call("echo32", [Val.I64(1)]) {
+        Err(Arguments(msg)) => assert(msg.contains("type mismatch")),
+        _ => assert(false),
+    }
+    match instance.call("takes_f32", [Val.I32(1)]) {
+        Err(Arguments(msg)) => assert(msg.contains("type mismatch")),
+        _ => assert(false),
+    }
+    stop(engine, store);
+}
+
+@test
+fun a_result_that_isnt_i32_or_i64_is_unsupported() {
+    let (engine, store, instance) = start(100000);
+    match instance.call("half", []) {
+        Err(UnsupportedType(msg)) => assert(msg.contains("half")),
+        _ => assert(false),
+    }
+    stop(engine, store);
+}
+
+@test
+fun unreachable_is_a_trap() {
+    let (engine, store, instance) = start(100000);
+    match instance.call("boom", []) {
+        Err(Trap(msg)) => assert(msg.contains("unreachable")),
+        _ => assert(false),
+    }
+    stop(engine, store);
+}
+
+@test
+fun a_guest_reading_past_its_memory_traps() {
+    let (engine, store, instance) = start(100000);
+    match instance.call("far", []) {
+        Err(Trap(msg)) => assert(msg.contains("out of bounds memory access")),
+        _ => assert(false),
+    }
+    stop(engine, store);
+}
+
+@test
+fun an_infinite_loop_runs_out_of_fuel() {
+    let (engine, store, instance) = start(100000);
+    assert_eq(instance.call("spin", []), Err(CallError.OutOfFuel));
+    assert_eq(store.fuel().unwrap(), 0 as u64);
+    stop(engine, store);
+}
+
+@test
+fun a_trap_leaves_the_instance_usable() {
+    let (engine, store, instance) = start(100000);
+    assert(instance.call("boom", []).is_err());
+    assert_eq(instance.call("echo32", [Val.I32(5)]), Ok([Val.I32(5)]));
+    stop(engine, store);
+}
+
+@test
+fun a_closed_store_closes_its_instances() {
+    let (engine, store, instance) = start(100000);
+    store.close();
+    assert_eq(instance.call("echo32", [Val.I32(1)]), Err(CallError.Closed));
+    engine.close();
+}

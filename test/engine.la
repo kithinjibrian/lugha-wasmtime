@@ -1,0 +1,136 @@
+/**
+ * Tests for `wasmtime.engine`: engines, stores, fuel, store limits and closing.
+ */
+
+import wasmtime {
+    Engine,
+    Store,
+    StoreError,
+    Limits,
+    Module,
+    Linker,
+    LinkError,
+    CallError,
+    Instance,
+    Val,
+};
+
+/** A guest that counts down from its argument, spending fuel on each step. */
+fun countdown(): string = "(module (func (export \"count\") (param i32) (loop $l (local.set 0 (i32.sub (local.get 0) (i32.const 1))) (br_if $l (local.get 0)))))";
+
+/** Instantiates `wat` in `store` through a fresh linker. */
+fun instantiate(engine: Engine, store: Store, wat: string): Result<Instance, LinkError> {
+    let module = Module.from_text(engine, wat).unwrap();
+    let linker = Linker.new(engine).unwrap();
+    let instance = linker.instantiate(store, module);
+    linker.close();
+    module.close();
+    instance
+}
+
+@test
+fun fuel_reads_back_what_was_set() {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    store.set_fuel(5000).unwrap();
+    assert_eq(store.fuel().unwrap(), 5000 as u64);
+    store.close();
+    engine.close();
+}
+
+@test
+fun a_new_store_has_no_fuel() {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    assert_eq(store.fuel().unwrap(), 0 as u64);
+    let instance = instantiate(engine, store, countdown()).unwrap();
+    assert_eq(instance.call("count", [Val.I32(3)]), Err(CallError.OutOfFuel));
+    store.close();
+    engine.close();
+}
+
+@test
+fun calls_spend_fuel() {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    store.set_fuel(100000).unwrap();
+    let instance = instantiate(engine, store, countdown()).unwrap();
+    instance.call("count", [Val.I32(100)]).unwrap();
+    let left = store.fuel().unwrap();
+    assert(left < 100000 as u64);
+    assert(left > 0 as u64);
+    store.close();
+    engine.close();
+}
+
+@test
+fun a_memory_limit_stops_a_larger_memory() {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    store.limit(Limits { memory_bytes: Some(65536), ..Limits.none() }).unwrap();
+    instantiate(engine, store, "(module (memory 1))").unwrap();
+    match instantiate(engine, store, "(module (memory 2))") {
+        Err(Instantiate(msg)) => assert(msg.contains("memory")),
+        _ => assert(false),
+    }
+    store.close();
+    engine.close();
+}
+
+@test
+fun an_instance_limit_stops_the_next_instance() {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    store.limit(Limits { instances: Some(1), ..Limits.none() }).unwrap();
+    instantiate(engine, store, "(module)").unwrap();
+    match instantiate(engine, store, "(module)") {
+        Err(Instantiate(msg)) => assert(msg.contains("instance")),
+        _ => assert(false),
+    }
+    store.close();
+    engine.close();
+}
+
+@test
+fun a_closed_store_is_an_error() {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    store.close();
+    assert_eq(store.set_fuel(1), Err(StoreError.Closed));
+    assert_eq(store.fuel(), Err(StoreError.Closed));
+    assert_eq(store.limit(Limits.none()), Err(StoreError.Closed));
+    engine.close();
+}
+
+@test
+fun closing_twice_is_harmless() {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    let copy = store;
+    store.close();
+    copy.close();
+    engine.close();
+    engine.close();
+    assert_eq(copy.fuel(), Err(StoreError.Closed));
+}
+
+@test
+fun a_closed_engine_makes_no_store() {
+    let engine = Engine.new();
+    engine.close();
+    match Store.new(engine) {
+        Err(Closed) => {}
+        _ => assert(false),
+    }
+}
+
+@test
+fun closing_the_engine_leaves_its_stores_working() {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    store.set_fuel(100000).unwrap();
+    let instance = instantiate(engine, store, countdown()).unwrap();
+    engine.close();
+    assert_eq(instance.call("count", [Val.I32(5)]), Ok([]));
+    store.close();
+}

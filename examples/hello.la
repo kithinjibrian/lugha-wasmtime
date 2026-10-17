@@ -1,6 +1,0 @@
-// An example using wasmtime. Run it with `lughac run examples/hello.la`.
-import wasmtime;
-
-fun main() {
-    println(wasmtime.greet("world"));
-}
