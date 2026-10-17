@@ -238,14 +238,38 @@ CONTEXT.md MEMORY.md — this session; PRP-001 marked merged
 
 ---
 
-## SESSION 7 — 2026-10-17 — Publish to GitHub — open
+## SESSION 7 — 2026-10-17 — Publish to GitHub — closed
 
 Branch: main
 
-(In progress.)
+### WHAT WAS DONE
+
+The owner asked to publish the repository to their GitHub. Checked: `gh` is logged in as kithinjibrian; `kithinjibrian/lugha-wasmtime` doesn't exist; `lugha` and `lugha-gtk` are public, and `lugha` publishes its context files too. The 42 tracked files hold no secrets, keys or binaries. Before the push: `fmt --check` exit 0, `lughac test test/` exit 0 (56/56), `examples/log.la` builds. Creating the public repository (`gh repo create … --public --source . --remote origin`) was denied by Claude Code's permission check, so nothing was created or pushed.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md — this session
+```
+
+### TESTS WRITTEN
+
+- None.
+
+### DECISIONS MADE
+
+- Publish public, everything tracked (matches lugha), once the owner runs or allows the command.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- No remote yet: the owner runs `gh repo create kithinjibrian/lugha-wasmtime --public --source . --remote origin --push` (or allows it).
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open a session first. PRP-001 (the core runtime) is on `main`. Next work is whatever the owner asks for; any new binding needs a PRP, and `src/raw.la` (396 lines) must be split first, with the split proposed and approved. Report the lughac gaps in docs/specs/lughac-c-pointers.md if not done. Before any push or tag (none yet; no remote), ask the owner and check the real exit status of `lughac test test/`.
+Open a session first. If `git remote -v` shows no `origin`, the repository isn't published yet: ask the owner whether to retry `gh repo create kithinjibrian/lugha-wasmtime --public --source . --remote origin --push` (check `lughac test test/`'s real exit status first). Once a remote exists, sessions close with a push. Otherwise as before: PRP-001 is on `main`; split `src/raw.la` (396 lines) before any new extern; report the lughac gaps in docs/specs/lughac-c-pointers.md.
