@@ -90,10 +90,10 @@ Read this at the start of every session before writing any code.
 ## CURRENT PROJECT STATE
 
 ### Fully Working
-- `lughac init --lib` skeleton; context system (session 1).
+- Context system (session 1). On the PRP-001 branch: the whole core runtime.
 
-### In Progress
-- PRP-001 (core runtime), approved session 5, on branch `prp-001-core_runtime`.
+### Built, awaiting merge
+- PRP-001 (core runtime), session 5, branch `prp-001-core_runtime`: 56 tests pass, `fmt --check` clean, `examples/log.la` builds and runs. Not merged to `main` yet.
 
 ---
 

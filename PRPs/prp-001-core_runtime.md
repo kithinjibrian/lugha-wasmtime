@@ -1,6 +1,6 @@
 # PRP-001 — Core runtime: run untrusted WebAssembly from Lugha
 
-**Status:** approved 2026-10-17 (session 5), with DECISION-007. Brief: the owner's, recorded in CONTEXT.md session 3.
+**Status:** built 2026-10-17 (session 5) on `prp-001-core_runtime`; approved with DECISION-007. Brief: the owner's, recorded in CONTEXT.md session 3.
 
 ## FEATURE: Compile, link, instantiate and call WebAssembly modules with fuel, store limits, host functions and bounds-checked guest memory.
 
@@ -156,11 +156,11 @@ fun main() {
 
 ## TESTS TO WRITE (before the code, inline `.wat`)
 
-- [ ] `test/engine.la`: a store's fuel set and read back; `Limits` applied (a module asking for more memory fails to instantiate, `Instantiate`); `StoreError.Closed` after `close`; `close` twice is harmless; closing the engine leaves an existing store working.
-- [ ] `test/module.la`: from bytes (bytes got from a known module) and from text; `Text`; `Wasm` (truncated bytes, and a module that fails validation); `Closed`; closing a module leaves its instance working.
-- [ ] `test/linker.la`: a host `add(i64, i64) -> i64` called by a guest; a host `log(ptr, len)` reading the caller's memory; host `Err(msg)` becomes `CallError.Trap(msg)`; host results of the wrong count or type become a trap; a `Caller` memory used after the call is `Closed`; `Define` (same name twice); `Instantiate` (missing import); `Trap` and `OutOfFuel` from a start function; `Closed`; host functions still work after `linker.close()`.
-- [ ] `test/instance.la`: i32 and i64 arguments and results (negative values too); `MissingExport`; `NotAFunction`; `Arguments` (count, type); `UnsupportedType` (an f32 result); `Trap` (`unreachable`; a guest load past its memory); `OutOfFuel` (an infinite loop stops); `Closed` after `store.close()`; fuel is consumed by calls.
-- [ ] `test/memory.la`: `size`; `write` then `read`; the guest sees the host's write and the host sees the guest's; `OutOfBounds` for read, write, an offset past the end, and `offset + len` overflowing `u64`; a zero-length access at the end is `Ok`; after the guest grows its memory (`memory.grow`), a formerly out-of-bounds read works; `MissingExport`, `NotAMemory`, `Closed`.
+- [x] `test/engine.la`: a store's fuel set and read back; `Limits` applied (a module asking for more memory fails to instantiate, `Instantiate`); `StoreError.Closed` after `close`; `close` twice is harmless; closing the engine leaves an existing store working.
+- [x] `test/module.la`: from bytes (bytes got from a known module) and from text; `Text`; `Wasm` (truncated bytes, and a module that fails validation); `Closed`; closing a module leaves its instance working.
+- [x] `test/linker.la`: a host `add(i64, i64) -> i64` called by a guest; a host `log(ptr, len)` reading the caller's memory; host `Err(msg)` becomes `CallError.Trap(msg)`; host results of the wrong count or type become a trap; a `Caller` memory used after the call is `Closed`; `Define` (same name twice); `Instantiate` (missing import); `Trap` and `OutOfFuel` from a start function; `Closed`; host functions still work after `linker.close()`.
+- [x] `test/instance.la`: i32 and i64 arguments and results (negative values too); `MissingExport`; `NotAFunction`; `Arguments` (count, type); `UnsupportedType` (an f32 result); `Trap` (`unreachable`; a guest load past its memory); `OutOfFuel` (an infinite loop stops); `Closed` after `store.close()`; fuel is consumed by calls.
+- [x] `test/memory.la`: `size`; `write` then `read`; the guest sees the host's write and the host sees the guest's; `OutOfBounds` for read, write, an offset past the end, and `offset + len` overflowing `u64`; a zero-length access at the end is `Ok`; after the guest grows its memory (`memory.grow`), a formerly out-of-bounds read works; `MissingExport`, `NotAMemory`, `Closed`.
 
 ## ROLLBACK PLAN
 
@@ -169,14 +169,14 @@ fun main() {
 
 ## ACCEPTANCE CRITERIA
 
-- [ ] Every item in Must Do works, as shown by the tests above.
-- [ ] Every extern checked against the v49.0.3 headers, line by line, during the build.
-- [ ] Every public function has a happy-path test, and every error variant has one.
-- [ ] `lughac test test/` passes; `examples/log.la` builds and runs.
-- [ ] `lughac fmt --check src examples test` is clean.
-- [ ] Every `public` item has a `/** … */` doc comment (docs/CODE_STYLE.md).
-- [ ] No file over 400 lines.
-- [ ] CHANGELOG.md, MEMORY.md and DECISIONS.md (006, 007) are updated.
+- [x] Every item in Must Do works, as shown by the tests above.
+- [x] Every extern checked against the v49.0.3 headers, line by line, during the build.
+- [x] Every public function has a happy-path test, and every error variant has one.
+- [x] `lughac test test/` passes; `examples/log.la` builds and runs.
+- [x] `lughac fmt --check src examples test` is clean.
+- [x] Every `public` item has a `/** … */` doc comment (docs/CODE_STYLE.md).
+- [x] No file over 400 lines.
+- [x] CHANGELOG.md, MEMORY.md and DECISIONS.md (006, 007) are updated.
 
 ## VALIDATION
 

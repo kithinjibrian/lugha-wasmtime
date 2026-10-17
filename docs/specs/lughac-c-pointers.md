@@ -3,6 +3,14 @@
 **From:** lugha-wasmtime, session 3 (2026-10-17). **Decision:** DECISION-005 (resolved: fix lughac first).
 **For:** a lughac PRP in `../lugha`, written and built under that repo's rules. This file is a list of needs, not a design: the syntax is lughac's to choose.
 
+## Gaps found building PRP-001 (session 5), for lughac
+
+None blocks lugha-wasmtime; each is worked around openly (DECISION-007):
+
+1. **No way to name a field after a keyword.** wasmtime's `of`, `i32`, `i64`, `f32`, `f64` (and `private`) are keywords, so `raw` writes `of_`, `i32_`. lugha's own PRP-136 example (`extern struct Val { kind: u8, of: ValUnion }`, `ValUnion { i32: … }`) doesn't compile for the same reason. A raw-identifier syntax would let `raw` match the headers exactly.
+2. **No absent callback.** A C function-pointer parameter that is always NULL (`wasmtime_store_new`'s `finalizer`) has to be declared `Option<CPtr>`. An `Option` of a callback type would say what it is.
+3. **No unit type.** `Result<(), E>` doesn't parse, so "nothing to return" is `Result<i64, E>` with `Ok(0)`, as std does.
+
 ## Status (session 5, after lughac m103–m106)
 
 Every need is met. An end-to-end probe passed against libwasmtime at `-O0` and `-O2`: function types from `wasm_valtype_vec_new` and `wasm_functype_new`, host functions with `Val[]`/`Ref<Val[]>`, the caller's memory via `CPtr` and `c_read`/`c_write`, export lookup into `wasmtime_extern_t` (an `extern union`), `wasmtime_func_call`, and `wasm_byte_vec_t` with a `CPtr` field read and freed. Two small gaps remain, neither blocking (DECISION-007): no way to name a field after a keyword (`of`, `i32`), and no NULL callback.
