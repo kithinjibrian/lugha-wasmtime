@@ -40,6 +40,12 @@ test/, docs/source/…, docs/specs …, reports/ — empty folders
 
 ---
 
+## SESSION 2 — 2026-10-17 — Resolve install, layering and license — open
+
+Branch: main
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 2 first. Resolve DECISIONS 001–002 with the user (the user installs wasmtime), then run a discovery interview for PRP-001: the minimum the Rapidkoi shell needs.
