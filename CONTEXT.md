@@ -128,6 +128,14 @@ CONTEXT.md                       — this session
 
 ---
 
+## SESSION 4 — 2026-10-17 — Check lughac out-parameters (m102) — open
+
+Branch: main
+
+(In progress.)
+
+---
+
 ## NEXT SESSION START POINT
 
 Open a session first. PRP-001 is blocked until lughac can pass out-parameters, pointers to extern structs and byte buffers to C (DECISION-005). That work happens in `../lugha`, in a session there, from `docs/specs/lughac-c-pointers.md`. When lughac ships it: check `lughac --version` and `lughac spec` §8 for the new syntax, then run discovery for PRP-001 from the brief in session 3 above, open every header again for each extern, and present the PRP for approval. wasmtime v49.0.3 is already installed.
