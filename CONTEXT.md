@@ -206,6 +206,14 @@ DECISIONS.md MEMORY.md CHANGELOG.md README.md docs/specs/lughac-c-pointers.md
 
 ---
 
+## SESSION 6 — 2026-10-17 — Merge PRP-001 — open
+
+Branch: prp-001-core_runtime, merging into main
+
+(In progress.)
+
+---
+
 ## NEXT SESSION START POINT
 
 Open a session first. If the owner approved the merge, `prp-001-core_runtime` is on `main`; otherwise merge it after re-running `lughac fmt --check src examples test`, `lughac test test/` (check its real exit status) and building `examples/*.la`. PRP-001 is done: the next work is whatever the owner asks for next (likely Rapidkoi's shell using this package from `../rapidkoi`, which is that repo's work, not this one's). Any new binding needs a PRP, and `src/raw.la` must be split first (396 lines): propose `raw.la` re-exporting `raw/*.la` by header, or similar.
