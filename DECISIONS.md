@@ -11,10 +11,37 @@ Rules:
 
 ## OPEN — Requires human input before implementation
 
+(none)
+
+---
+
+## DEFERRED — Acknowledged, not yet needed
+
+### DECISION-004 — WASI
+
+**Status:** deferred
+**Raised:** 2026-10-17 — Session 1
+**Revisit when:** A user of the package needs guests with file, clock or environment access.
+
+**Question:** Bind wasmtime's WASI support, and with what default (none) of capabilities?
+
+**Notes:** Rapidkoi gives guests nothing except its own host functions, so it doesn't need WASI.
+
+---
+
+## RESOLVED
+
 ### DECISION-005 — lughac can't pass pointers, out-parameters or byte buffers to C
 
-**Status:** open (blocks PRP-001)
+**Status:** resolved
 **Raised:** 2026-10-17 — Session 3
+**Resolved:** 2026-10-17 — Session 3 (the owner chose option 1)
+
+**Outcome:** Fix lughac first. PRP-001 waits until lughac can pass out-parameters, pointers to extern structs and byte buffers across the C boundary. No C shim in this package. What wasmtime needs, with header lines, is in `docs/specs/lughac-c-pointers.md`, the input for a lughac PRP in `../lugha` under that repo's rules.
+
+**Rationale:** Keeps `wasmtime.raw` exactly the headers (architecture rule 1), follows the Rapidkoi meeting's "gaps are fixed upstream, never worked around", adds no unchecked C between Lugha and untrusted guests, and lets lugha-gtk drop its own shims later.
+
+**Copied to MEMORY.md:** yes
 
 **Question:** wasmtime's C API returns almost everything through pointers, which lughac 0.1.0 can't express. How does PRP-001 reach it?
 
@@ -39,22 +66,6 @@ Only engine/config creation, `wasmtime_store_new`, `wasmtime_store_context`, `wa
 **Notes:** With a shim, bytes still can't cross as `u8[]`; they cross one `u8` per call (`lwt_memory_get(…, offset): u8`, a C-side buffer filled byte by byte for wasm bytes). That is complete but costs one C call per byte. `string` is no substitute for bytes: text from C stops at NUL and replaces invalid UTF-8. WebAssembly text and error messages are fine as `string`.
 
 ---
-
-## DEFERRED — Acknowledged, not yet needed
-
-### DECISION-004 — WASI
-
-**Status:** deferred
-**Raised:** 2026-10-17 — Session 1
-**Revisit when:** A user of the package needs guests with file, clock or environment access.
-
-**Question:** Bind wasmtime's WASI support, and with what default (none) of capabilities?
-
-**Notes:** Rapidkoi gives guests nothing except its own host functions, so it doesn't need WASI.
-
----
-
-## RESOLVED
 
 ### DECISION-001 — How wasmtime is installed, found and pinned
 

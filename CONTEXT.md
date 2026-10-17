@@ -79,14 +79,55 @@ docs/WASMTIME_VERSION   — 49.0.3
 
 ---
 
-## SESSION 3 — 2026-10-17 — PRP-001 core runtime bindings — open
+## SESSION 3 — 2026-10-17 — PRP-001 core runtime bindings — closed
 
 Branch: main
 
-(In progress.)
+### WHAT WAS DONE
+
+Confirmed wasmtime v49.0.3 is installed (`WASMTIME_VERSION "49.0.3"` in `/usr/local/include/wasmtime.h`). Before writing PRP-001, checked the brief against `lughac spec` §8 and the headers: lughac 0.1.0 can't pass out-parameters, struct pointers or byte buffers to C (a probe gave `E0409: arrays can't cross the C boundary`), and nearly every function the brief needs uses them. Recorded DECISION-005; the owner chose to fix lughac first rather than add a C shim. Wrote `docs/specs/lughac-c-pointers.md` (each need with its header line) as the input for a lughac PRP. No PRP-001 and no code: its externs depend on syntax lughac doesn't have yet.
+
+**The owner's brief for PRP-001** (kept here so it isn't lost): a general-purpose API, nothing Rapidkoi-specific.
+1. Engine with fuel consumption enabled.
+2. Store (one per running guest): set and read remaining fuel; store limiter (memory size, table elements, instances, tables, memories).
+3. Module: compile from wasm bytes; compile from WebAssembly text via `wasmtime_wat2wasm`.
+4. Linker: define a host function under (module, name) with i32/i64 params and results, backed by a Lugha closure pinned with `data`/`release`; inside it, reach the caller's exported memory (`wasmtime_caller_export_get`) so a guest can pass (pointer, length); instantiate through the linker.
+5. Call an exported function by name with i32/i64 args and results.
+6. Guest memory by export name: size in bytes; read (offset, length); write bytes at an offset; every access bounds-checked against the size re-read on each call; out of bounds is `Err`.
+7. Typed `Result` errors: compile, link/instantiate (e.g. missing import), trap with message, out of fuel (own variant), missing or wrong-typed export, out-of-bounds memory, wrong argument types or counts.
+8. `src/raw.la` = the v49.0.3 headers exactly; the entry is the safe API with no raw handles; every handle freed once; nothing outlives its store.
+9. `@test` files with inline `.wat` covering every item and error variant (an infinite loop stops with out-of-fuel; a read past memory traps). Replace `examples/hello.la` with an example using a host `log(ptr, len)`.
+Must NOT do: WASI, the component model, async, reference/GC types, f32/f64, the tables API, caching compiled modules, anything Rapidkoi-specific.
+
+### FILES CREATED OR MODIFIED
+
+```
+DECISIONS.md                     — DECISION-005 raised and resolved (fix lughac first)
+MEMORY.md                        — decision 6, state (PRP-001 blocked)
+docs/specs/lughac-c-pointers.md  — what wasmtime needs from lughac, with header lines
+CHANGELOG.md                     — the spec file
+CONTEXT.md                       — this session
+```
+
+### TESTS WRITTEN
+
+- None (no code).
+
+### DECISIONS MADE
+
+- DECISION-005: lughac gets pointer and byte interop before any binding; no C shim.
+
+### PENDING DECISIONS OPENED
+
+- None open.
+
+### STILL OPEN AT CLOSE
+
+- PRP-001 not written: blocked on lughac (DECISION-005).
+- The lughac PRP itself is to be written in `../lugha`, which this repo never writes to.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open session 3 first. Check wasmtime v49.0.3 is installed (`ls /usr/local/include/wasmtime.h /usr/local/lib/libwasmtime.so`); if not, ask the user to follow README.md. Then run a discovery interview for PRP-001, the minimum the Rapidkoi shell needs: engine and store (fuel and memory limits), compile a module (and `wat2wasm` for tests), instantiate with host functions, call an export, read and write guest memory with bounds checks, traps as `Result`. Every extern is checked against `/usr/local/include`.
+Open a session first. PRP-001 is blocked until lughac can pass out-parameters, pointers to extern structs and byte buffers to C (DECISION-005). That work happens in `../lugha`, in a session there, from `docs/specs/lughac-c-pointers.md`. When lughac ships it: check `lughac --version` and `lughac spec` §8 for the new syntax, then run discovery for PRP-001 from the brief in session 3 above, open every header again for each extern, and present the PRP for approval. wasmtime v49.0.3 is already installed.

@@ -57,6 +57,16 @@ Read this at the start of every session before writing any code.
 
 ---
 
+### 6. lughac gains pointer interop before any binding (DECISION-005)
+
+**Decision:** PRP-001 waits until lughac can pass out-parameters, pointers to extern structs and byte buffers to C. The needs are listed in `docs/specs/lughac-c-pointers.md`.
+
+**Why:** lughac 0.1.0 can't declare almost any of wasmtime's C API (E0409 for arrays; no struct pointers). The owner chose fixing lughac over a C shim, so `raw` stays exactly the headers and no unchecked C sits in front of untrusted guests.
+
+**Rules out:** C shim files (`[link] c`) in this package; per-byte workarounds; writing PRP-001 externs before lughac's syntax for pointers exists.
+
+---
+
 ## CURRENT PROJECT STATE
 
 ### Fully Working
@@ -65,11 +75,11 @@ Read this at the start of every session before writing any code.
 ### In Progress
 - Nothing.
 
-### Not Started
-- Any bindings: next is PRP-001 (needs the user to install wasmtime v49.0.3 first).
+### Blocked
+- PRP-001 (core runtime bindings; the owner's brief is recorded in CONTEXT.md session 3): waits on lughac pointer interop (DECISION-005). wasmtime v49.0.3 is installed.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Read CLAUDE.md, MEMORY.md, DECISIONS.md and CONTEXT.md. Resolve DECISIONS 001–002 with the user, then run a discovery interview for PRP-001: the minimum Rapidkoi's shell needs (engine, store with fuel and memory limits, compile a module, instantiate, call an export, read and write guest memory, one host function).
+See CONTEXT.md. In short: the lughac work comes first, in `../lugha` under its rules, from `docs/specs/lughac-c-pointers.md`. Once lughac ships it, write PRP-001 from the brief.

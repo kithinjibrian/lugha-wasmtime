@@ -9,3 +9,4 @@ Updated at the end of every session when something is completed and merged.
 
 ### Added
 - Package skeleton (`wasmtime`).
+- `docs/specs/lughac-c-pointers.md`: what the bindings need from lughac at the C boundary.
