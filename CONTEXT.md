@@ -206,14 +206,38 @@ DECISIONS.md MEMORY.md CHANGELOG.md README.md docs/specs/lughac-c-pointers.md
 
 ---
 
-## SESSION 6 — 2026-10-17 — Merge PRP-001 — open
+## SESSION 6 — 2026-10-17 — Merge PRP-001 — closed
 
-Branch: prp-001-core_runtime, merging into main
+Branch: prp-001-core_runtime, merged into main
 
-(In progress.)
+### WHAT WAS DONE
+
+On the owner's go, re-ran the checks on `prp-001-core_runtime` (`fmt --check` exit 0, `lughac test test/` exit 0 with 56/56, `examples/log.la` builds) and merged it into `main` (`--no-ff`). The branch is kept.
+
+### FILES CREATED OR MODIFIED
+
+```
+CONTEXT.md MEMORY.md — this session; PRP-001 marked merged
+```
+
+### TESTS WRITTEN
+
+- None (56 existing pass).
+
+### DECISIONS MADE
+
+- None.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- No remote. `src/raw.la` at 396 lines (split before the next extern). lughac gaps to report (docs/specs/lughac-c-pointers.md).
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open a session first. If the owner approved the merge, `prp-001-core_runtime` is on `main`; otherwise merge it after re-running `lughac fmt --check src examples test`, `lughac test test/` (check its real exit status) and building `examples/*.la`. PRP-001 is done: the next work is whatever the owner asks for next (likely Rapidkoi's shell using this package from `../rapidkoi`, which is that repo's work, not this one's). Any new binding needs a PRP, and `src/raw.la` must be split first (396 lines): propose `raw.la` re-exporting `raw/*.la` by header, or similar.
+Open a session first. PRP-001 (the core runtime) is on `main`. Next work is whatever the owner asks for; any new binding needs a PRP, and `src/raw.la` (396 lines) must be split first, with the split proposed and approved. Report the lughac gaps in docs/specs/lughac-c-pointers.md if not done. Before any push or tag (none yet; no remote), ask the owner and check the real exit status of `lughac test test/`.
