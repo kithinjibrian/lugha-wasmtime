@@ -1,0 +1,141 @@
+/**
+ * Tests for `wasmtime.memory`: bounds-checked reads and writes of a guest's
+ * memory, its size, and growth.
+ */
+
+import wasmtime { Engine, Store, Module, Linker, Instance, Memory, MemoryError, Val };
+
+/** One page of memory, "guest" at byte 8, and functions to peek, poke and grow it. */
+fun guest(): string =
+    "(module (memory (export \"memory\") 1) (data (i32.const 8) \"guest\") (func (export \"peek\") (param i32) (result i32) (i32.load8_u (local.get 0))) (func (export \"poke\") (param i32 i32) (i32.store8 (local.get 0) (local.get 1))) (func (export \"grow\") (result i32) (memory.grow (i32.const 1))) (func (export \"f\")))";
+
+/** One WebAssembly page, in bytes. */
+fun page(): u64 = 65536;
+
+/** An engine, a store with fuel, an instance of `guest()` and its memory. */
+fun start(): (Engine, Store, Instance, Memory) {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    store.set_fuel(100000).unwrap();
+    let module = Module.from_text(engine, guest()).unwrap();
+    let linker = Linker.new(engine).unwrap();
+    let instance = linker.instantiate(store, module).unwrap();
+    linker.close();
+    module.close();
+    (engine, store, instance, instance.memory("memory").unwrap())
+}
+
+/** Closes what `start` made. */
+fun stop(engine: Engine, store: Store) {
+    store.close();
+    engine.close();
+}
+
+@test
+fun size_is_in_bytes() {
+    let (engine, store, instance, memory) = start();
+    assert_eq(memory.size(), Ok(page()));
+    stop(engine, store);
+}
+
+@test
+fun reads_what_the_guest_wrote() {
+    let (engine, store, instance, memory) = start();
+    assert_eq(memory.read(8, 5), Ok("guest".to_bytes()));
+    instance.call("poke", [Val.I32(100), Val.I32(77)]).unwrap();
+    assert_eq(memory.read(100, 1), Ok([77 as u8]));
+    stop(engine, store);
+}
+
+@test
+fun the_guest_reads_what_the_host_wrote() {
+    let (engine, store, instance, memory) = start();
+    memory.write(200, [1 as u8, 2, 250]).unwrap();
+    assert_eq(memory.read(200, 3), Ok([1 as u8, 2, 250]));
+    assert_eq(instance.call("peek", [Val.I32(202)]), Ok([Val.I32(250)]));
+    stop(engine, store);
+}
+
+@test
+fun the_last_byte_is_in_bounds() {
+    let (engine, store, instance, memory) = start();
+    memory.write(page() - 1, [9 as u8]).unwrap();
+    assert_eq(memory.read(page() - 1, 1), Ok([9 as u8]));
+    stop(engine, store);
+}
+
+@test
+fun a_zero_length_access_at_the_end_is_ok() {
+    let (engine, store, instance, memory) = start();
+    assert_eq(memory.read(page(), 0), Ok([]));
+    assert_eq(memory.write(page(), []), Ok(()));
+    stop(engine, store);
+}
+
+@test
+fun reading_past_the_end_is_out_of_bounds() {
+    let (engine, store, instance, memory) = start();
+    assert_eq(memory.read(page() - 1, 2), Err(MemoryError.OutOfBounds(page() - 1, 2, page())));
+    assert_eq(memory.read(page() + 1, 0), Err(MemoryError.OutOfBounds(page() + 1, 0, page())));
+    stop(engine, store);
+}
+
+@test
+fun writing_past_the_end_is_out_of_bounds() {
+    let (engine, store, instance, memory) = start();
+    assert_eq(memory.write(page() - 2, [1 as u8, 2, 3]), Err(MemoryError.OutOfBounds(page() - 2, 3, page())));
+    assert_eq(memory.read(page() - 2, 2), Ok([0 as u8, 0]));
+    stop(engine, store);
+}
+
+@test
+fun an_overflowing_range_is_out_of_bounds() {
+    let (engine, store, instance, memory) = start();
+    assert_eq(memory.read(u64.MAX, 2), Err(MemoryError.OutOfBounds(u64.MAX, 2, page())));
+    assert_eq(memory.write(u64.MAX, [1 as u8]), Err(MemoryError.OutOfBounds(u64.MAX, 1, page())));
+    stop(engine, store);
+}
+
+@test
+fun a_grown_memory_is_checked_against_its_new_size() {
+    let (engine, store, instance, memory) = start();
+    assert(memory.read(page(), 4).is_err());
+    assert_eq(instance.call("grow", []), Ok([Val.I32(1)]));
+    assert_eq(memory.size(), Ok(2 * page()));
+    assert_eq(memory.read(page(), 4), Ok([0 as u8, 0, 0, 0]));
+    stop(engine, store);
+}
+
+@test
+fun a_missing_memory_is_an_error() {
+    let (engine, store, instance, memory) = start();
+    match instance.memory("nope") {
+        Err(MemoryError.MissingExport(name)) => assert_eq(name, "nope"),
+        _ => assert(false),
+    }
+    stop(engine, store);
+}
+
+@test
+fun an_export_that_isnt_a_memory_is_an_error() {
+    let (engine, store, instance, memory) = start();
+    match instance.memory("f") {
+        Err(MemoryError.NotAMemory(name)) => assert_eq(name, "f"),
+        _ => assert(false),
+    }
+    stop(engine, store);
+}
+
+@test
+fun a_closed_store_closes_its_memories() {
+    let (engine, store, instance, memory) = start();
+    store.close();
+    assert_eq(memory.size(), Err(MemoryError.Closed));
+    assert_eq(memory.read(0, 1), Err(MemoryError.Closed));
+    assert_eq(memory.write(0, [1 as u8]), Err(MemoryError.Closed));
+    match instance.memory("memory") {
+        Err(MemoryError.Closed) => {}
+        _ => assert(false),
+    }
+    engine.close();
+}

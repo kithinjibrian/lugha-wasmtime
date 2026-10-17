@@ -1,0 +1,133 @@
+/**
+ * Tests for `wasmtime.module`: compiling from bytes and from text, and closing.
+ */
+
+import wasmtime { Engine, Store, Module, CompileError, Linker, Instance, Val };
+
+/** `(module (func (export "f") (result i32) i32.const 42))`, encoded by hand. */
+fun answer_bytes(): u8[] = [
+    // magic "\0asm", version 1
+    0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+    // type section: one type, () -> i32
+    0x01, 0x05, 0x01, 0x60, 0x00, 0x01, 0x7f,
+    // function section: function 0 has type 0
+    0x03, 0x02, 0x01, 0x00,
+    // export section: "f" is function 0
+    0x07, 0x05, 0x01, 0x01, 0x66, 0x00, 0x00,
+    // code section: no locals, i32.const 42, end
+    0x0a, 0x06, 0x01, 0x04, 0x00, 0x41, 0x2a, 0x0b,
+];
+
+/** Instantiates `module` in a fresh store with fuel, and calls its export `f`. */
+fun call_f(engine: Engine, module: Module): Val[] {
+    let store = Store.new(engine).unwrap();
+    store.set_fuel(10000).unwrap();
+    let linker = Linker.new(engine).unwrap();
+    let instance = linker.instantiate(store, module).unwrap();
+    let results = instance.call("f", []).unwrap();
+    linker.close();
+    store.close();
+    results
+}
+
+@test
+fun compiles_from_bytes() {
+    let engine = Engine.new();
+    let module = Module.new(engine, answer_bytes()).unwrap();
+    assert_eq(call_f(engine, module), [Val.I32(42)]);
+    module.close();
+    engine.close();
+}
+
+@test
+fun compiles_from_text() {
+    let engine = Engine.new();
+    let module = Module.from_text(engine, "(module (func (export \"f\") (result i32) i32.const 42))").unwrap();
+    assert_eq(call_f(engine, module), [Val.I32(42)]);
+    module.close();
+    engine.close();
+}
+
+@test
+fun bad_text_is_a_text_error() {
+    let engine = Engine.new();
+    match Module.from_text(engine, "(module") {
+        Err(CompileError.Text(msg)) => assert(msg.contains("expected")),
+        _ => assert(false),
+    }
+    engine.close();
+}
+
+@test
+fun truncated_bytes_are_a_wasm_error() {
+    let engine = Engine.new();
+    let bytes = answer_bytes().slice(0, 12);
+    match Module.new(engine, bytes) {
+        Err(CompileError.Wasm(msg)) => assert(msg.len > 0),
+        _ => assert(false),
+    }
+    engine.close();
+}
+
+@test
+fun no_bytes_are_a_wasm_error() {
+    let engine = Engine.new();
+    match Module.new(engine, []) {
+        Err(CompileError.Wasm(_)) => {}
+        _ => assert(false),
+    }
+    engine.close();
+}
+
+@test
+fun a_module_that_fails_validation_is_a_wasm_error() {
+    let engine = Engine.new();
+    match Module.from_text(engine, "(module (func (result i32)))") {
+        Err(CompileError.Wasm(msg)) => assert(msg.contains("type mismatch")),
+        _ => assert(false),
+    }
+    engine.close();
+}
+
+@test
+fun a_closed_engine_compiles_nothing() {
+    let engine = Engine.new();
+    engine.close();
+    match Module.new(engine, answer_bytes()) {
+        Err(CompileError.Closed) => {}
+        _ => assert(false),
+    }
+    match Module.from_text(engine, "(module)") {
+        Err(CompileError.Closed) => {}
+        _ => assert(false),
+    }
+}
+
+@test
+fun closing_a_module_leaves_its_instances_working() {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    store.set_fuel(10000).unwrap();
+    let module = Module.new(engine, answer_bytes()).unwrap();
+    let linker = Linker.new(engine).unwrap();
+    let instance = linker.instantiate(store, module).unwrap();
+    module.close();
+    module.close();
+    assert_eq(instance.call("f", []), Ok([Val.I32(42)]));
+    linker.close();
+    store.close();
+    engine.close();
+}
+
+@test
+fun a_closed_module_is_not_instantiated() {
+    let engine = Engine.new();
+    let store = Store.new(engine).unwrap();
+    let module = Module.new(engine, answer_bytes()).unwrap();
+    module.close();
+    let linker = Linker.new(engine).unwrap();
+    assert(linker.instantiate(store, module).is_err());
+    linker.close();
+    store.close();
+    engine.close();
+}
