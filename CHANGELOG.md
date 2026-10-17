@@ -8,6 +8,7 @@ Updated at the end of every session when something is completed and merged.
 ## [Unreleased]
 
 ### Changed
+- `wasmtime.raw`'s seven header constants (`WASM_I32`, `WASMTIME_I64`, `WASMTIME_EXTERN_MEMORY`, `WASMTIME_TRAP_CODE_OUT_OF_FUEL`, …) are `public const` now that lughac has constants (m109): `raw.WASMTIME_I64`, not `raw.WASMTIME_I64()`. `test/raw.la` pins each to its header value.
 - `Store.set_fuel`, `Store.limit`, `Linker.define` and `Memory.write` return `Result<(), E>` with `Ok(())` instead of `Result<i64, E>` with `Ok(0)`, now that lughac has a unit type (m107).
 
 ### Added

@@ -52,7 +52,7 @@ fun memory_from(
     let kind = owned.kind;
     let memory = owned.of_.memory;
     raw.wasmtime_extern_delete(mut owned);
-    if kind != raw.WASMTIME_EXTERN_MEMORY() {
+    if kind != raw.WASMTIME_EXTERN_MEMORY {
         return Err(MemoryError.NotAMemory(name));
     }
     Ok(Memory { memory: memory, context: context, live: live })

@@ -6,7 +6,7 @@
  * Lugha keyword gets a trailing `_` (`of_`, `i32_`), `__private…` is
  * `private…`, and private pointers inside union members are `u64` (lugha
  * decision 110). Field order and types are the headers', so C sees the same
- * bytes. Each `#define` is a function of the same name (Lugha has no constants).
+ * bytes. Each `#define` and enum value is a `public const` of the same name.
  *
  * Ownership is stated on every extern that takes or returns a pointer. The
  * safe modules beside this one free each handle exactly once.
@@ -155,19 +155,19 @@ public extern struct wasmtime_extern_t {
 // ---- Constants ----
 
 /** `WASM_I32` (wasm.h, `wasm_valkind_enum`). */
-public fun WASM_I32(): u8 = 0;
+public const WASM_I32: u8 = 0;
 /** `WASM_I64` (wasm.h, `wasm_valkind_enum`). */
-public fun WASM_I64(): u8 = 1;
+public const WASM_I64: u8 = 1;
 /** `WASMTIME_I32` (wasmtime/val.h). */
-public fun WASMTIME_I32(): u8 = 0;
+public const WASMTIME_I32: u8 = 0;
 /** `WASMTIME_I64` (wasmtime/val.h). */
-public fun WASMTIME_I64(): u8 = 1;
+public const WASMTIME_I64: u8 = 1;
 /** `WASMTIME_EXTERN_FUNC` (wasmtime/extern.h). */
-public fun WASMTIME_EXTERN_FUNC(): u8 = 0;
+public const WASMTIME_EXTERN_FUNC: u8 = 0;
 /** `WASMTIME_EXTERN_MEMORY` (wasmtime/extern.h). */
-public fun WASMTIME_EXTERN_MEMORY(): u8 = 3;
+public const WASMTIME_EXTERN_MEMORY: u8 = 3;
 /** `WASMTIME_TRAP_CODE_OUT_OF_FUEL` (wasmtime/trap.h, `wasmtime_trap_code_enum`). */
-public fun WASMTIME_TRAP_CODE_OUT_OF_FUEL(): u8 = 11;
+public const WASMTIME_TRAP_CODE_OUT_OF_FUEL: u8 = 11;
 
 // ---- Engine and config ----
 

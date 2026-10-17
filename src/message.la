@@ -65,7 +65,7 @@ fun trap_stop(trap: raw.wasm_trap_t): Stop {
     raw.wasm_trap_message(trap, out vec);
     raw.wasm_trap_delete(trap);
     let text = take_text(vec);
-    if has_code && code == raw.WASMTIME_TRAP_CODE_OUT_OF_FUEL() {
+    if has_code && code == raw.WASMTIME_TRAP_CODE_OUT_OF_FUEL {
         Stop.OutOfFuel
     } else {
         Stop.Trap(text)

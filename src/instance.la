@@ -48,8 +48,8 @@ public enum CallError {
 
 /** The `wasm_valkind_t` of a value type. */
 fun valtype_kind(t: ValType): u8 = match t {
-    I32 => raw.WASM_I32(),
-    I64 => raw.WASM_I64(),
+    I32 => raw.WASM_I32,
+    I64 => raw.WASM_I64,
 };
 
 /** The type of a value. */
@@ -71,20 +71,20 @@ fun kind_name(kind: u8): string = match kind {
 /** The C form of a value. */
 fun val_to_raw(v: Val): raw.wasmtime_val_t = match v {
     I32(n) => raw.wasmtime_val_t {
-        kind: raw.WASMTIME_I32(),
+        kind: raw.WASMTIME_I32,
         of_: raw.wasmtime_valunion_t { i32_: n },
     },
     I64(n) => raw.wasmtime_val_t {
-        kind: raw.WASMTIME_I64(),
+        kind: raw.WASMTIME_I64,
         of_: raw.wasmtime_valunion_t { i64_: n },
     },
 };
 
 /** The Lugha form of a C value, read by its kind; `None` for a type other than i32/i64. */
 fun val_from_raw(v: raw.wasmtime_val_t): Option<Val> {
-    if v.kind == raw.WASMTIME_I32() {
+    if v.kind == raw.WASMTIME_I32 {
         Some(Val.I32(v.of_.i32_))
-    } else if v.kind == raw.WASMTIME_I64() {
+    } else if v.kind == raw.WASMTIME_I64 {
         Some(Val.I64(v.of_.i64_))
     } else {
         None
@@ -149,7 +149,7 @@ impl Instance {
         let func = item.of_.func;
         // A func has no destructor, so `func` stays valid after the extern is freed.
         raw.wasmtime_extern_delete(mut item);
-        if kind != raw.WASMTIME_EXTERN_FUNC() {
+        if kind != raw.WASMTIME_EXTERN_FUNC {
             return Err(CallError.NotAFunction(name));
         }
         let ty = raw.wasmtime_func_type(context, ptr func);
