@@ -305,6 +305,14 @@ DECISIONS.md MEMORY.md CHANGELOG.md PRPs/prp-001-core_runtime.md docs/specs/lugh
 
 ---
 
+## SESSION 9 — 2026-10-17 — Check lughac `()` patterns — open
+
+Branch: main
+
+(In progress.)
+
+---
+
 ## NEXT SESSION START POINT
 
 Open a session first. Everything is on `main`. If `git remote -v` is empty, the repository isn't published: ask the owner to run `gh repo create kithinjibrian/lugha-wasmtime --public --source . --remote origin --push` or allow it (check `lughac test test/`'s exit status first). Split `src/raw.la` (396 lines) before any new extern, with approval. Report the remaining lughac gaps in docs/specs/lughac-c-pointers.md.
