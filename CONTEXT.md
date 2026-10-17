@@ -377,6 +377,14 @@ CHANGELOG.md CONTEXT.md
 
 ---
 
+## SESSION 11 — 2026-10-17 — First release — open
+
+Branch: main
+
+(In progress.)
+
+---
+
 ## NEXT SESSION START POINT
 
 Open a session first. The repository is public at https://github.com/kithinjibrian/lugha-wasmtime and sessions now close with a push, after asking the owner and checking `lughac test test/`'s real exit status. PRP-001 is done on `main`. Split `src/raw.la` (396 lines) before any new extern, with approval. Report the two remaining lughac gaps in docs/specs/lughac-c-pointers.md.
