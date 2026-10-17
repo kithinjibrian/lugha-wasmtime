@@ -1,0 +1,29 @@
+/**
+ * Tests for `wasmtime.raw`: its constants hold the values the v49.0.3
+ * headers give them.
+ */
+
+import wasmtime.raw;
+
+@test
+fun value_kinds_match_the_headers() {
+    // wasm.h: `enum wasm_valkind_enum { WASM_I32, WASM_I64, … }`
+    assert_eq(raw.WASM_I32, 0 as u8);
+    assert_eq(raw.WASM_I64, 1 as u8);
+    // wasmtime/val.h: `#define WASMTIME_I32 0`, `#define WASMTIME_I64 1`
+    assert_eq(raw.WASMTIME_I32, 0 as u8);
+    assert_eq(raw.WASMTIME_I64, 1 as u8);
+}
+
+@test
+fun extern_kinds_match_the_headers() {
+    // wasmtime/extern.h: `#define WASMTIME_EXTERN_FUNC 0`, `#define WASMTIME_EXTERN_MEMORY 3`
+    assert_eq(raw.WASMTIME_EXTERN_FUNC, 0 as u8);
+    assert_eq(raw.WASMTIME_EXTERN_MEMORY, 3 as u8);
+}
+
+@test
+fun the_out_of_fuel_trap_code_matches_the_header() {
+    // wasmtime/trap.h: `WASMTIME_TRAP_CODE_OUT_OF_FUEL = 11`
+    assert_eq(raw.WASMTIME_TRAP_CODE_OUT_OF_FUEL, 11 as u8);
+}

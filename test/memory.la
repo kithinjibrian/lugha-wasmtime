@@ -9,7 +9,7 @@ import wasmtime { Engine, Store, Module, Linker, Instance, Memory, MemoryError, 
 fun guest(): string = "(module (memory (export \"memory\") 1) (data (i32.const 8) \"guest\") (func (export \"peek\") (param i32) (result i32) (i32.load8_u (local.get 0))) (func (export \"poke\") (param i32 i32) (i32.store8 (local.get 0) (local.get 1))) (func (export \"grow\") (result i32) (memory.grow (i32.const 1))) (func (export \"f\")))";
 
 /** One WebAssembly page, in bytes. */
-fun page(): u64 = 65536;
+const PAGE: u64 = 65536;
 
 /** An engine, a store with fuel, an instance of `guest()` and its memory. */
 fun start(): (Engine, Store, Instance, Memory) {
@@ -33,7 +33,7 @@ fun stop(engine: Engine, store: Store) {
 @test
 fun size_is_in_bytes() {
     let (engine, store, instance, memory) = start();
-    assert_eq(memory.size(), Ok(page()));
+    assert_eq(memory.size(), Ok(PAGE));
     stop(engine, store);
 }
 
@@ -58,24 +58,24 @@ fun the_guest_reads_what_the_host_wrote() {
 @test
 fun the_last_byte_is_in_bounds() {
     let (engine, store, instance, memory) = start();
-    memory.write(page() - 1, [9 as u8]).unwrap();
-    assert_eq(memory.read(page() - 1, 1), Ok([9 as u8]));
+    memory.write(PAGE - 1, [9 as u8]).unwrap();
+    assert_eq(memory.read(PAGE - 1, 1), Ok([9 as u8]));
     stop(engine, store);
 }
 
 @test
 fun a_zero_length_access_at_the_end_is_ok() {
     let (engine, store, instance, memory) = start();
-    assert_eq(memory.read(page(), 0), Ok([]));
-    assert_eq(memory.write(page(), []), Ok(()));
+    assert_eq(memory.read(PAGE, 0), Ok([]));
+    assert_eq(memory.write(PAGE, []), Ok(()));
     stop(engine, store);
 }
 
 @test
 fun reading_past_the_end_is_out_of_bounds() {
     let (engine, store, instance, memory) = start();
-    assert_eq(memory.read(page() - 1, 2), Err(MemoryError.OutOfBounds(page() - 1, 2, page())));
-    assert_eq(memory.read(page() + 1, 0), Err(MemoryError.OutOfBounds(page() + 1, 0, page())));
+    assert_eq(memory.read(PAGE - 1, 2), Err(MemoryError.OutOfBounds(PAGE - 1, 2, PAGE)));
+    assert_eq(memory.read(PAGE + 1, 0), Err(MemoryError.OutOfBounds(PAGE + 1, 0, PAGE)));
     stop(engine, store);
 }
 
@@ -83,28 +83,28 @@ fun reading_past_the_end_is_out_of_bounds() {
 fun writing_past_the_end_is_out_of_bounds() {
     let (engine, store, instance, memory) = start();
     assert_eq(
-        memory.write(page() - 2, [1 as u8, 2, 3]),
-        Err(MemoryError.OutOfBounds(page() - 2, 3, page())),
+        memory.write(PAGE - 2, [1 as u8, 2, 3]),
+        Err(MemoryError.OutOfBounds(PAGE - 2, 3, PAGE)),
     );
-    assert_eq(memory.read(page() - 2, 2), Ok([0 as u8, 0]));
+    assert_eq(memory.read(PAGE - 2, 2), Ok([0 as u8, 0]));
     stop(engine, store);
 }
 
 @test
 fun an_overflowing_range_is_out_of_bounds() {
     let (engine, store, instance, memory) = start();
-    assert_eq(memory.read(u64.MAX, 2), Err(MemoryError.OutOfBounds(u64.MAX, 2, page())));
-    assert_eq(memory.write(u64.MAX, [1 as u8]), Err(MemoryError.OutOfBounds(u64.MAX, 1, page())));
+    assert_eq(memory.read(u64.MAX, 2), Err(MemoryError.OutOfBounds(u64.MAX, 2, PAGE)));
+    assert_eq(memory.write(u64.MAX, [1 as u8]), Err(MemoryError.OutOfBounds(u64.MAX, 1, PAGE)));
     stop(engine, store);
 }
 
 @test
 fun a_grown_memory_is_checked_against_its_new_size() {
     let (engine, store, instance, memory) = start();
-    assert(memory.read(page(), 4).is_err());
+    assert(memory.read(PAGE, 4).is_err());
     assert_eq(instance.call("grow", []), Ok([Val.I32(1)]));
-    assert_eq(memory.size(), Ok(2 * page()));
-    assert_eq(memory.read(page(), 4), Ok([0 as u8, 0, 0, 0]));
+    assert_eq(memory.size(), Ok(2 * PAGE));
+    assert_eq(memory.read(PAGE, 4), Ok([0 as u8, 0, 0, 0]));
     stop(engine, store);
 }
 
