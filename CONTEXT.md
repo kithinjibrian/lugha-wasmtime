@@ -270,6 +270,14 @@ CONTEXT.md — this session
 
 ---
 
+## SESSION 8 — 2026-10-17 — Check lughac m107 (unit type) — open
+
+Branch: main
+
+(In progress.)
+
+---
+
 ## NEXT SESSION START POINT
 
 Open a session first. If `git remote -v` shows no `origin`, the repository isn't published yet: ask the owner whether to retry `gh repo create kithinjibrian/lugha-wasmtime --public --source . --remote origin --push` (check `lughac test test/`'s real exit status first). Once a remote exists, sessions close with a push. Otherwise as before: PRP-001 is on `main`; split `src/raw.la` (396 lines) before any new extern; report the lughac gaps in docs/specs/lughac-c-pointers.md.
