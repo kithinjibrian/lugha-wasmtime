@@ -68,7 +68,7 @@ fun the_last_byte_is_in_bounds() {
 fun a_zero_length_access_at_the_end_is_ok() {
     let (engine, store, instance, memory) = start();
     assert_eq(memory.read(page(), 0), Ok([]));
-    assert_eq(memory.write(page(), []), Ok(()));
+    assert_eq(memory.write(page(), []), Ok(0));
     stop(engine, store);
 }
 

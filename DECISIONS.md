@@ -41,6 +41,8 @@ Rules:
 
 **Outcome:** (1) a C name that's a Lugha keyword gets a trailing `_` (`of_`, `i32_`, `private_`), and `__private…` becomes `private…`, layout unchanged; (2) private pointers inside union members are `u64`, per lugha decision 110; (3) `wasmtime_store_new`'s NULL `finalizer` is `Option<CPtr>`, passed `None`. Report (1) and (3) to lughac as gaps.
 
+**Addendum (session 5, the owner's choice):** (4) Lugha has no unit type, so functions with nothing to return give `Result<i64, E>` with `Ok(0)`, as std does (`fs.make_dir`). Also a lughac gap to report.
+
 **Copied to MEMORY.md:** yes
 
 ---

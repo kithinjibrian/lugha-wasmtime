@@ -82,11 +82,12 @@ fun main() {
 - **Lugha spec sections relied on:** §8 `out`/`ptr`/`mut` parameters (m102–m103), arrays and `extern union` (m104), `CPtr`, `c_read`, `c_write`, arrays and `Ref<T[]>` in callbacks (m105), `Option` of a handle in extern struct fields (m106), callbacks with `data`/`release` (v16); §3 enums with payloads, struct update syntax; §4 `Ref<T>`, `checked_add`; §6 visibility (package-level fields hide raw handles from other packages); §9 `@test`, `skip`.
 - **Decisions:** DECISION-001–003, 005 (resolved). DECISION-006 (lifetimes: explicit `close()`, resolved this session). This PRP asks approval for **DECISION-007** (below).
 
-### DECISION-007 — two places `raw` can't match the header text exactly (approve with this PRP)
+### DECISION-007 — places `raw` can't match the header text exactly (approve with this PRP)
 
 1. **Keywords as field names.** Lugha has no way to escape a keyword, and the headers use `of`, `i32`, `i64`, `f32`, `f64` and `__private`. `raw` adds a trailing `_` to any C name that's a Lugha keyword (`of_`, `i32_`, `private_`) and drops the leading `__` from private names (`__private1` → `private1`). Field order, types and layout are unchanged, so C sees the same bytes. lugha's own tests rename these too (`int64`, `value`).
 2. **Pointers C keeps private**, inside union members, are `u64` (`wasmtime_func_t.__private`, `anyref.__private3`, `sharedmemory`), per lugha decision 110: unions hold plain data, and only C ever follows these.
 3. **A NULL function pointer.** `wasmtime_store_new`'s `finalizer` is `void (*)(void *)`. We always pass NULL, and a Lugha callback can't be absent, so it's declared `Option<CPtr>` and passed `None` (the same pointer-sized NULL). `data` is `Option<CPtr>`, `None`. I'll report both naming and NULL callbacks to lughac as gaps; neither blocks this PRP.
+4. **No unit type** (found during the build, the owner's choice): every `Result<(), E>` below is `Result<i64, E>` returning `Ok(0)`, as std does.
 
 ## IMPLEMENTATION REQUIREMENTS
 

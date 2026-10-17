@@ -79,7 +79,7 @@ Read this at the start of every session before writing any code.
 
 ### 8. Header names Lugha can't spell (DECISION-007)
 
-**Decision:** In `raw`, a C name that's a Lugha keyword gets a trailing `_` (`of_`, `i32_`, `private_`), `__private…` becomes `private…`; private pointers in union members are `u64` (lugha decision 110); `wasmtime_store_new`'s NULL finalizer is `Option<CPtr>`.
+**Decision:** In `raw`, a C name that's a Lugha keyword gets a trailing `_` (`of_`, `i32_`, `private_`), `__private…` becomes `private…`; private pointers in union members are `u64` (lugha decision 110); `wasmtime_store_new`'s NULL finalizer is `Option<CPtr>`; no unit type, so "nothing" is `Result<i64, E>` with `Ok(0)`, as std does.
 
 **Why:** Lugha can't escape keywords, unions hold plain data, a callback can't be absent; none of it changes the bytes C sees.
 

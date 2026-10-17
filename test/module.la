@@ -61,7 +61,12 @@ fun bad_text_is_a_text_error() {
 @test
 fun truncated_bytes_are_a_wasm_error() {
     let engine = Engine.new();
-    let bytes = answer_bytes().slice(0, 12);
+    let mut bytes: u8[] = [];
+    for b of answer_bytes() {
+        if bytes.len < 12 {
+            bytes.push(b);
+        }
+    }
     match Module.new(engine, bytes) {
         Err(CompileError.Wasm(msg)) => assert(msg.len > 0),
         _ => assert(false),
