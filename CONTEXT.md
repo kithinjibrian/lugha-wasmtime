@@ -79,6 +79,14 @@ docs/WASMTIME_VERSION   — 49.0.3
 
 ---
 
+## SESSION 3 — 2026-10-17 — PRP-001 core runtime bindings — open
+
+Branch: main
+
+(In progress.)
+
+---
+
 ## NEXT SESSION START POINT
 
 Open session 3 first. Check wasmtime v49.0.3 is installed (`ls /usr/local/include/wasmtime.h /usr/local/lib/libwasmtime.so`); if not, ask the user to follow README.md. Then run a discovery interview for PRP-001, the minimum the Rapidkoi shell needs: engine and store (fuel and memory limits), compile a module (and `wat2wasm` for tests), instantiate with host functions, call an export, read and write guest memory with bounds checks, traps as `Result`. Every extern is checked against `/usr/local/include`.
