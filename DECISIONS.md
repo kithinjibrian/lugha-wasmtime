@@ -43,6 +43,8 @@ Rules:
 
 **Addendum (session 5, the owner's choice):** (4) Lugha has no unit type, so functions with nothing to return give `Result<i64, E>` with `Ok(0)`, as std does (`fs.make_dir`). Also a lughac gap to report.
 
+**Item 4 retired (session 8):** lughac m107 added the unit type; the owner chose to switch, so `set_fuel`, `limit`, `define` and `Memory.write` return `Result<(), E>` with `Ok(())`, as PRP-001 first specified.
+
 **Copied to MEMORY.md:** yes
 
 ---

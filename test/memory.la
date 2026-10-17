@@ -49,7 +49,7 @@ fun reads_what_the_guest_wrote() {
 @test
 fun the_guest_reads_what_the_host_wrote() {
     let (engine, store, instance, memory) = start();
-    memory.write(200, [1 as u8, 2, 250]).unwrap();
+    assert_eq(memory.write(200, [1 as u8, 2, 250]), Ok(()));
     assert_eq(memory.read(200, 3), Ok([1 as u8, 2, 250]));
     assert_eq(instance.call("peek", [Val.I32(202)]), Ok([Val.I32(250)]));
     stop(engine, store);
@@ -67,7 +67,7 @@ fun the_last_byte_is_in_bounds() {
 fun a_zero_length_access_at_the_end_is_ok() {
     let (engine, store, instance, memory) = start();
     assert_eq(memory.read(page(), 0), Ok([]));
-    assert_eq(memory.write(page(), []), Ok(0));
+    assert_eq(memory.write(page(), []), Ok(()));
     stop(engine, store);
 }
 

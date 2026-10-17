@@ -146,7 +146,7 @@ impl Linker {
      *
      * @param module the import's module name, such as `"env"`
      * @param name the import's field name, such as `"log"`
-     * @returns `Ok(0)`; `Err(Define)` with wasmtime's message (a name defined
+     * @returns `Ok(())`; `Err(Define)` with wasmtime's message (a name defined
      *     twice); `Err(Closed)` if the linker was closed
      *
      * Example:
@@ -159,7 +159,7 @@ impl Linker {
         params: instance.ValType[],
         results: instance.ValType[],
         f: fun(Caller, instance.Val[]): Result<instance.Val[], string>,
-    ): Result<i64, LinkError> {
+    ): Result<(), LinkError> {
         if !self.live.get() {
             return Err(LinkError.Closed);
         }
@@ -201,7 +201,7 @@ impl Linker {
         raw.wasm_functype_delete(ty);
         match error {
             Some(e) => Err(LinkError.Define(message.error_text(e))),
-            None => Ok(0),
+            None => Ok(()),
         }
     }
 

@@ -137,19 +137,19 @@ impl Store {
      * an out-of-fuel error. Each WebAssembly instruction costs about one unit.
      *
      * @param fuel the units left, replacing what was there
-     * @returns `Ok(0)`; `Err(Closed)` if the store was closed
+     * @returns `Ok(())`; `Err(Closed)` if the store was closed
      *
      * Example:
      *     store.set_fuel(1000000)?;
      */
-    public fun set_fuel(self, fuel: u64): Result<i64, StoreError> {
+    public fun set_fuel(self, fuel: u64): Result<(), StoreError> {
         if !self.live.get() {
             return Err(StoreError.Closed);
         }
         if let Some(error) = raw.wasmtime_context_set_fuel(self.context, fuel) {
             panic("wasmtime: fuel isn't enabled on this engine: {message.error_text(error)}");
         }
-        Ok(0)
+        Ok(())
     }
 
     /**
@@ -175,12 +175,12 @@ impl Store {
      * Caps the store's resources. A memory or table growing past its cap fails
      * in the guest; an instantiation needing more fails with an error.
      *
-     * @returns `Ok(0)`; `Err(Closed)` if the store was closed
+     * @returns `Ok(())`; `Err(Closed)` if the store was closed
      *
      * Example:
      *     store.limit(Limits { memory_bytes: Some(16 * 65536), ..Limits.none() })?;
      */
-    public fun limit(self, limits: Limits): Result<i64, StoreError> {
+    public fun limit(self, limits: Limits): Result<(), StoreError> {
         if !self.live.get() {
             return Err(StoreError.Closed);
         }
@@ -192,7 +192,7 @@ impl Store {
             limit_value(limits.tables),
             limit_value(limits.memories),
         );
-        Ok(0)
+        Ok(())
     }
 
     /**
