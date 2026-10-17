@@ -56,6 +56,7 @@ fun main() {
   - `wasmtime/module.h`: `wasmtime_module_new`, `wasmtime_module_delete`
   - `wasmtime/linker.h`: `wasmtime_linker_new`, `wasmtime_linker_define_func`, `wasmtime_linker_instantiate`, `wasmtime_linker_delete`
   - `wasmtime/instance.h`: `wasmtime_instance_export_get`
+  - `wasmtime/extern.h`: `wasmtime_extern_delete` (added during the build with the owner's approval: extern.h requires it for every returned `wasmtime_extern_t`)
   - `wasmtime/func.h`: `wasmtime_func_call`, `wasmtime_func_type`, `wasmtime_caller_export_get`, `wasmtime_caller_context`, and the callback type `wasmtime_func_callback_t`
   - `wasmtime/memory.h`: `wasmtime_memory_data`, `wasmtime_memory_data_size`
   - Types: `wasm_byte_vec_t`, `wasm_valtype_vec_t`, `wasmtime_instance_t`, `wasmtime_func_t`, `wasmtime_memory_t`, `wasmtime_global_t`, `wasmtime_table_t`, `wasmtime_tag_t`, `wasmtime_anyref_t`/`externref`/`exnref`, `wasmtime_valunion_t`, `wasmtime_val_t`, `wasmtime_extern_union_t`, `wasmtime_extern_t`, with the constants `WASMTIME_I32`, `WASMTIME_I64`, `WASMTIME_EXTERN_FUNC`, `WASMTIME_EXTERN_MEMORY`, `WASMTIME_TRAP_CODE_OUT_OF_FUEL`, `WASM_I32`, `WASM_I64`. Unions are declared in full (the installed `conf.h` defines `WASMTIME_FEATURE_GC`), so sizes match C: `wasmtime_val_t` 32 bytes, `wasmtime_extern_t` 32 bytes, `wasmtime_memory_t` 24 bytes (measured with a C program).
@@ -74,6 +75,7 @@ fun main() {
   | `wasm_valtype_t *` | consumed by `wasm_valtype_vec_new` | — |
   | `wasm_valtype_vec_t` | consumed by `wasm_functype_new` (passed `mut`) | — |
   | `wasm_functype_t *` (ours, and from `wasmtime_func_type`) | the caller | `wasm_functype_delete`, after `define_func` copies it / after reading counts |
+  | `wasmtime_extern_t` (from `*_export_get`) | the caller | `wasmtime_extern_delete`, right after copying out the func or memory (which have no destructor, so the copies stay valid) |
   | `wasmtime_caller_t *` | wasmtime, during the host call only | never |
   | `uint8_t *` from `wasmtime_memory_data` | the store | never; used for one `c_read`/`c_write` right after a bounds check |
   | host closure (`data`/`release`) | lughac's pin | wasmtime calls `release` when the linker and every store using it are gone |
