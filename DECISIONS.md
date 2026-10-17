@@ -11,7 +11,32 @@ Rules:
 
 ## OPEN — Requires human input before implementation
 
-(none)
+### DECISION-005 — lughac can't pass pointers, out-parameters or byte buffers to C
+
+**Status:** open (blocks PRP-001)
+**Raised:** 2026-10-17 — Session 3
+
+**Question:** wasmtime's C API returns almost everything through pointers, which lughac 0.1.0 can't express. How does PRP-001 reach it?
+
+**What lughac allows** (`lughac spec` §8): numbers, `bool`, `string`, opaque handles (`extern type`, `Option` of one), callbacks with `data`/`release`, and `extern struct` *by value*. "Pointers to structs, arrays of structs … can't cross yet." A `u8[]` parameter is `E0409: arrays can't cross the C boundary` (checked with a probe).
+
+**What the brief needs that it can't declare** (v49.0.3 headers):
+- Out-pointer to a handle: `wasmtime_module_new(…, wasmtime_module_t **ret)` (module.h:47); `wasm_trap_t **trap` in `wasmtime_func_call` (func.h:194) and `wasmtime_linker_instantiate` (linker.h:227).
+- Out-pointer to a number: `wasmtime_context_get_fuel(…, uint64_t *fuel)` (store.h:180); `wasmtime_trap_code(…, wasmtime_trap_code_t *code)` (trap.h:177).
+- Bytes into C: `const uint8_t *wasm, size_t wasm_len` (module.h:47).
+- Bytes out of C: `wasm_byte_vec_t *ret` of `wasmtime_wat2wasm` (wat.h:35); `wasm_name_t *message` of `wasmtime_error_message` (error.h:51) and `wasm_trap_message` (wasm.h:404); `uint8_t *wasmtime_memory_data` (memory.h:98), whose bytes Lugha can't read or write.
+- Structs C fills or reads by pointer: `wasmtime_instance_t *`, `wasmtime_extern_t *` (`wasmtime_instance_export_get`, instance.h:86; `wasmtime_caller_export_get`, func.h:252), `const wasmtime_func_t *` and `const wasmtime_memory_t *` (func.h:194, memory.h:98/104), arrays of `wasmtime_val_t` (func.h:194).
+- A callback receiving pointers: `wasmtime_func_callback_t` gets `const wasmtime_val_t *args` and `wasmtime_val_t *results` (func.h:57).
+- Function types: `wasm_functype_new` takes `wasm_valtype_vec_t *` (wasm.h:218); the `wasm_functype_new_N_M` helpers are `static inline`, not exported symbols.
+
+Only engine/config creation, `wasmtime_store_new`, `wasmtime_store_context`, `wasmtime_context_set_fuel`, `wasmtime_store_limiter`, `wasmtime_linker_new` and the `*_delete` functions are expressible today.
+
+**Options:**
+1. **Fix lughac first** (`../lugha`, under its rules): out-parameters, pointers to extern structs, and byte buffers in and out across the C boundary. `wasmtime.raw` stays exactly the headers. Several language milestones before PRP-001 can start.
+2. **A C shim in this package** (`src/c/*.c` in `[link] c`), as lugha-gtk does for `GtkTextIter` and variadics: small wrappers, each calling one wasmtime function, keeping pointers and structs on the C side (e.g. `size_t lwt_memory_size(store, instance, name)`). Amends architecture rule 1: `raw` would declare the shim's functions, not the headers'. Bounds checks still happen in Lugha before the shim copies bytes.
+3. **Both:** the shim now, recorded as temporary, plus a lughac PRP for pointer interop; `raw` moves to the real headers and the shim is deleted when lughac supports it.
+
+**Notes:** With a shim, bytes still can't cross as `u8[]`; they cross one `u8` per call (`lwt_memory_get(…, offset): u8`, a C-side buffer filled byte by byte for wasm bytes). That is complete but costs one C call per byte. `string` is no substitute for bytes: text from C stops at NUL and replaces invalid UTF-8. WebAssembly text and error messages are fine as `string`.
 
 ---
 
