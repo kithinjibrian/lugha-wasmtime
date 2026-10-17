@@ -1,0 +1,24 @@
+# .llmignore
+# Keep in sync with PROTECTED FILES in CLAUDE.md and .claude/settings.json.
+
+.env
+.env.*
+
+# Lockfile: written only by lughac
+lugha.lock
+
+# Built executables (see .gitignore)
+/hello
+/examples/hello
+
+# wasmtime's installed C API: read headers, never edit
+/usr/local/include/wasm.h
+/usr/local/include/wasmtime.h
+/usr/local/include/wasmtime/
+/usr/local/lib/libwasmtime*
+
+# Sibling repositories: read for reference, never write
+../lugha/
+../rapidkoi/
+../kivuli/
+../lugha-gtk/

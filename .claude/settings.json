@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Edit(./.env)",
+      "Read(./.env.*)",
+      "Edit(./.env.*)",
+      "Edit(./lugha.lock)",
+      "Edit(/usr/local/include/**)",
+      "Edit(/usr/local/lib/**)",
+      "Edit(../lugha/**)",
+      "Edit(../rapidkoi/**)",
+      "Edit(../kivuli/**)",
+      "Edit(../lugha-gtk/**)"
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+# The package manifest (Lugha spec §6).
+[package]
+name = "wasmtime"
+version = "0.1.0"
+source = "src"
