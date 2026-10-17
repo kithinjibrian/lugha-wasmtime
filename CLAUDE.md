@@ -107,6 +107,7 @@ Never read, modify, or delete:
 
 - `.env` and `.env.*`
 - `lugha.lock`: written only by lughac
+- `LICENSE`: changed only by the human
 - Built executables (the paths in `.gitignore`)
 - wasmtime's installed headers and libraries: read the headers, never edit them
 - `../lugha/`, `../rapidkoi/` and every other sibling repository: read for reference, never write
@@ -127,20 +128,24 @@ lughac spec                         # the Lugha reference: check it before assum
 
 A task is done only when `fmt --check` is clean, `lughac test test/` passes and every example builds.
 
-> Needs: `lughac` (the user installs it; never do it yourself) and wasmtime's C API (the user installs it, see DECISION-001).
+> Needs: `lughac` (the user installs it; never do it yourself) and wasmtime's C API v49.0.3 in `/usr/local` (the user installs it, see `README.md`; never do it yourself).
 
 ---
 
 ## STACK
 
 - **Lugha** via `lughac` 0.1.0. Use only what `lughac spec` documents.
-- **wasmtime C API**, version pinned in `docs/WASMTIME_VERSION` (DECISION-001).
+- **wasmtime C API v49.0.3**, pinned in `docs/WASMTIME_VERSION`, installed by the user in `/usr/local`, linked with `[link] libs = ["wasmtime"]` (MEMORY.md decision 3).
+- License: **GPL-3.0-only**.
 
 ---
 
 ## ARCHITECTURE RULES
 
-To be settled by DECISION-002 (raw bindings only, or raw plus a safe layer) and the first PRP.
+1. **`src/raw.la` (`wasmtime.raw`) is the C API exactly as the headers declare it.** Same names, same parameter order, handles as `extern type`. No logic. *Why:* anyone can check it against the header line by line.
+2. **The entry `src/lib.la` is the safe API and never exposes a raw handle.** Errors and traps are `Result`, guest memory is bounds-checked, every handle is freed by the package. *Why:* a leaked raw handle can be freed twice or outlive its store.
+3. **Only `raw` declares externs.** Safe modules import `raw`. *Why:* one file to audit against the headers.
+4. **A handle never outlives what owns it** (a module instance outliving its store, a memory outliving its instance). The safe layer ties them together. *Why:* use-after-free in C.
 
 ---
 
@@ -157,11 +162,13 @@ Expected failures return `Result<T, E>` with a typed error enum per module. A gu
 ├── CLAUDE.md MEMORY.md CONTEXT.md DECISIONS.md CHANGELOG.md .llmignore
 ├── .claude/settings.json — deny rules mirroring .llmignore
 ├── lugha.toml            — package `wasmtime`, source `src`
-├── src/lib.la            — the entry (`import wasmtime;`): the lughac init placeholder today
+├── src/lib.la            — the entry (`import wasmtime;`), the safe API: the lughac init placeholder today
+├── (src/raw.la)          — `wasmtime.raw`, the externs, created by PRP-001
 ├── examples/hello.la     — placeholder example
 ├── test/                 — @test files mirroring src/
 ├── PRPs/                 — TEMPLATE.md, DISCOVERY.md, prp-{NNN}-….md
-├── docs/                 — CODE_STYLE.md, setup.md, source/, specs/ decisions/ incidents/ status/
+├── LICENSE               — GPL-3.0-only
+├── docs/                 — WASMTIME_VERSION, CODE_STYLE.md, setup.md, source/, specs/ decisions/ incidents/ status/
 └── reports/              — EOD reports
 ```
 

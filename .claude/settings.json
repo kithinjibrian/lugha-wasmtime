@@ -6,6 +6,7 @@
       "Read(./.env.*)",
       "Edit(./.env.*)",
       "Edit(./lugha.lock)",
+      "Edit(./LICENSE)",
       "Edit(/usr/local/include/**)",
       "Edit(/usr/local/lib/**)",
       "Edit(../lugha/**)",

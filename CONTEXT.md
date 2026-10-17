@@ -40,12 +40,45 @@ test/, docs/source/…, docs/specs …, reports/ — empty folders
 
 ---
 
-## SESSION 2 — 2026-10-17 — Resolve install, layering and license — open
+## SESSION 2 — 2026-10-17 — Resolve install, layering and license — closed
 
 Branch: main
+
+### WHAT WAS DONE
+
+The owner left DECISIONS 001–003 to Claude's judgement. Resolved them: wasmtime v49.0.3 (latest stable, checked on GitHub) installed from the official C API release into `/usr/local`; `wasmtime.raw` plus a safe entry; GPL-3.0-only. Checked the release's layout (`include/`, `lib/libwasmtime.so`) and wrote the install steps. No code changed.
+
+### FILES CREATED OR MODIFIED
+
+```
+DECISIONS.md            — 001–003 resolved
+MEMORY.md               — decisions 3–5, state
+CLAUDE.md               — stack, architecture rules 1–4, LICENSE protected, file tree
+README.md               — requirements with install steps, license
+LICENSE                 — GPL-3.0 (copied from lugha-gtk)
+docs/WASMTIME_VERSION   — 49.0.3
+.llmignore, .claude/settings.json — LICENSE added
+```
+
+### TESTS WRITTEN
+
+- None (no code).
+
+### DECISIONS MADE
+
+- DECISIONS 001, 002, 003 (see DECISIONS.md).
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- The user installs wasmtime v49.0.3 (README.md).
+- PRP-001 not written.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open session 2 first. Resolve DECISIONS 001–002 with the user (the user installs wasmtime), then run a discovery interview for PRP-001: the minimum the Rapidkoi shell needs.
+Open session 3 first. Check wasmtime v49.0.3 is installed (`ls /usr/local/include/wasmtime.h /usr/local/lib/libwasmtime.so`); if not, ask the user to follow README.md. Then run a discovery interview for PRP-001, the minimum the Rapidkoi shell needs: engine and store (fuel and memory limits), compile a module (and `wat2wasm` for tests), instantiate with host functions, call an export, read and write guest memory with bounds checks, traps as `Result`. Every extern is checked against `/usr/local/include`.

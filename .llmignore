@@ -7,6 +7,9 @@
 # Lockfile: written only by lughac
 lugha.lock
 
+# License: changed only by the human
+LICENSE
+
 # Built executables (see .gitignore)
 /hello
 /examples/hello
