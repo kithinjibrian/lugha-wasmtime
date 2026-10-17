@@ -166,7 +166,7 @@ CONTEXT.md                      — this session
 
 ## SESSION 5 — 2026-10-17 — Check lughac m103–m106; write PRP-001 — open
 
-Branch: main
+Branch: main, then prp-001-core_runtime
 
 (In progress.)
 

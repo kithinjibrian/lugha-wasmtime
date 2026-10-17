@@ -1,6 +1,6 @@
 # PRP-001 — Core runtime: run untrusted WebAssembly from Lugha
 
-**Status:** proposed 2026-10-17 (session 5). Brief: the owner's, recorded in CONTEXT.md session 3.
+**Status:** approved 2026-10-17 (session 5), with DECISION-007. Brief: the owner's, recorded in CONTEXT.md session 3.
 
 ## FEATURE: Compile, link, instantiate and call WebAssembly modules with fuel, store limits, host functions and bounds-checked guest memory.
 

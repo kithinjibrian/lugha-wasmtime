@@ -11,14 +11,7 @@ Rules:
 
 ## OPEN — Requires human input before implementation
 
-### DECISION-007 — Where `raw` can't spell the header exactly
-
-**Status:** open (approved or rejected with PRP-001)
-**Raised:** 2026-10-17 — Session 5
-
-**Question:** Lugha can't escape keywords, unions can't hold pointers, and a callback can't be absent. How does `raw` declare those parts of the headers?
-
-**Proposal (PRP-001, DECISION-007):** (1) a C name that's a Lugha keyword gets a trailing `_` (`of_`, `i32_`, `private_`), and `__private…` becomes `private…`, layout unchanged; (2) private pointers inside union members are `u64`, per lugha decision 110; (3) `wasmtime_store_new`'s NULL `finalizer` is `Option<CPtr>`, passed `None`. Report (1) and (3) to lughac as gaps.
+(none)
 
 ---
 
@@ -37,6 +30,20 @@ Rules:
 ---
 
 ## RESOLVED
+
+### DECISION-007 — Where `raw` can't spell the header exactly
+
+**Status:** resolved
+**Raised:** 2026-10-17 — Session 5
+**Resolved:** 2026-10-17 — Session 5 (approved with PRP-001)
+
+**Question:** Lugha can't escape keywords, unions can't hold pointers, and a callback can't be absent. How does `raw` declare those parts of the headers?
+
+**Outcome:** (1) a C name that's a Lugha keyword gets a trailing `_` (`of_`, `i32_`, `private_`), and `__private…` becomes `private…`, layout unchanged; (2) private pointers inside union members are `u64`, per lugha decision 110; (3) `wasmtime_store_new`'s NULL `finalizer` is `Option<CPtr>`, passed `None`. Report (1) and (3) to lughac as gaps.
+
+**Copied to MEMORY.md:** yes
+
+---
 
 ### DECISION-006 — How the safe API frees handles
 
