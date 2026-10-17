@@ -7,15 +7,18 @@ Updated at the end of every session when something is completed and merged.
 
 ## [Unreleased]
 
-### Changed
-- `wasmtime.raw`'s seven header constants (`WASM_I32`, `WASMTIME_I64`, `WASMTIME_EXTERN_MEMORY`, `WASMTIME_TRAP_CODE_OUT_OF_FUEL`, …) are `public const` now that lughac has constants (m109): `raw.WASMTIME_I64`, not `raw.WASMTIME_I64()`. `test/raw.la` pins each to its header value.
-- `Store.set_fuel`, `Store.limit`, `Linker.define` and `Memory.write` return `Result<(), E>` with `Ok(())` instead of `Result<i64, E>` with `Ok(0)`, now that lughac has a unit type (m107).
+(nothing yet)
+
+---
+
+## [0.1.0] — 2026-10-17
+
+First release: the core runtime (PRP-001), against wasmtime's C API v49.0.3 and lughac m109.
 
 ### Added
-- PRP-001, the core runtime: `Engine`, `Store` (fuel, `Limits`), `Module` (`new`, `from_text`), `Linker` (`define` host functions, `instantiate`), `Caller.memory`, `Instance` (`call`, `memory`), `Memory` (`size`, `read`, `write`, bounds-checked), and typed errors `StoreError`, `CompileError`, `LinkError`, `CallError`, `MemoryError`. `wasmtime.raw` declares 41 externs from the v49.0.3 headers.
+- `Engine` (fuel always on), `Store` (`set_fuel`, `fuel`, `limit` with `Limits`; no fuel until set), `Module` (`new` from bytes, `from_text`), `Linker` (`define` host functions as Lugha closures, `instantiate`), `Caller.memory`, `Instance` (`call` with i32/i64 `Val`s, `memory`), `Memory` (`size`, `read`, `write`, each bounds-checked against the size read on that call), and `close()` on each, shared by copies (a second close does nothing; use after close is `Err(Closed)`).
+- Typed errors: `StoreError`, `CompileError`, `LinkError`, `CallError`, `MemoryError`. Out of fuel is its own variant; a host function's `Err` traps the guest with its message.
+- `wasmtime.raw`: 41 externs, 27 types (11 handles, 14 structs, 2 unions) and 7 constants (`public const`) from the v49.0.3 headers.
 - `examples/log.la`: a guest logging through a host `log(ptr, len)` under fuel and a memory cap.
-- Package skeleton (`wasmtime`).
-- `docs/specs/lughac-c-pointers.md`: what the bindings need from lughac at the C boundary.
-
-### Removed
-- `examples/hello.la` and the `greet` placeholder in `src/lib.la`.
+- 59 tests with inline WebAssembly text.
+- `docs/specs/lughac-c-pointers.md`: what the bindings needed from lughac at the C boundary (milestones 102–107, 109).
