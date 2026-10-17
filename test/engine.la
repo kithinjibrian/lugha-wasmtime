@@ -16,8 +16,7 @@ import wasmtime {
 };
 
 /** A guest that counts down from its argument, spending fuel on each step. */
-fun countdown(): string =
-    "(module (func (export \"count\") (param i32) (loop $l (local.set 0 (i32.sub (local.get 0) (i32.const 1))) (br_if $l (local.get 0)))))";
+fun countdown(): string = "(module (func (export \"count\") (param i32) (loop $l (local.set 0 (i32.sub (local.get 0) (i32.const 1))) (br_if $l (local.get 0)))))";
 
 /** Instantiates `wat` in `store` through a fresh linker. */
 fun instantiate(engine: Engine, store: Store, wat: string): Result<Instance, LinkError> {
@@ -71,7 +70,7 @@ fun a_memory_limit_stops_a_larger_memory() {
     store.limit(Limits { memory_bytes: Some(65536), ..Limits.none() }).unwrap();
     instantiate(engine, store, "(module (memory 1))").unwrap();
     match instantiate(engine, store, "(module (memory 2))") {
-        Err(LinkError.Instantiate(msg)) => assert(msg.contains("memory")),
+        Err(Instantiate(msg)) => assert(msg.contains("memory")),
         _ => assert(false),
     }
     store.close();
@@ -85,7 +84,7 @@ fun an_instance_limit_stops_the_next_instance() {
     store.limit(Limits { instances: Some(1), ..Limits.none() }).unwrap();
     instantiate(engine, store, "(module)").unwrap();
     match instantiate(engine, store, "(module)") {
-        Err(LinkError.Instantiate(msg)) => assert(msg.contains("instance")),
+        Err(Instantiate(msg)) => assert(msg.contains("instance")),
         _ => assert(false),
     }
     store.close();
@@ -120,7 +119,7 @@ fun a_closed_engine_makes_no_store() {
     let engine = Engine.new();
     engine.close();
     match Store.new(engine) {
-        Err(StoreError.Closed) => {}
+        Err(Closed) => {}
         _ => assert(false),
     }
 }

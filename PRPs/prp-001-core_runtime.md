@@ -56,6 +56,7 @@ fun main() {
   - `wasmtime/module.h`: `wasmtime_module_new`, `wasmtime_module_delete`
   - `wasmtime/linker.h`: `wasmtime_linker_new`, `wasmtime_linker_define_func`, `wasmtime_linker_instantiate`, `wasmtime_linker_delete`
   - `wasmtime/instance.h`: `wasmtime_instance_export_get`
+  - `wasmtime/error.h`: `wasmtime_error_wasm_trace`, with `wasm.h`'s `wasm_frame_vec_t` and `wasm_frame_vec_delete` (added during the build with the owner's approval: a host function's trap comes back as an *error* from `wasmtime_func_call`/`wasmtime_linker_instantiate`, and only its wasm backtrace tells it from bad arguments or a link failure)
   - `wasmtime/extern.h`: `wasmtime_extern_delete` (added during the build with the owner's approval: extern.h requires it for every returned `wasmtime_extern_t`)
   - `wasmtime/func.h`: `wasmtime_func_call`, `wasmtime_func_type`, `wasmtime_caller_export_get`, `wasmtime_caller_context`, and the callback type `wasmtime_func_callback_t`
   - `wasmtime/memory.h`: `wasmtime_memory_data`, `wasmtime_memory_data_size`
@@ -72,6 +73,7 @@ fun main() {
   | `wasmtime_error_t *` (any result) | the caller | `wasmtime_error_delete`, immediately after reading its message |
   | `wasm_trap_t *` (out-param, or our host function's result) | the caller; a trap returned from a host function is taken by wasmtime | `wasm_trap_delete`, immediately after reading its message |
   | `wasm_byte_vec_t` (wat2wasm, messages) | the caller | `wasm_byte_vec_delete`, after `c_read` |
+  | `wasm_frame_vec_t` (`wasmtime_error_wasm_trace`) | the caller | `wasm_frame_vec_delete`, after reading its size |
   | `wasm_valtype_t *` | consumed by `wasm_valtype_vec_new` | — |
   | `wasm_valtype_vec_t` | consumed by `wasm_functype_new` (passed `mut`) | — |
   | `wasm_functype_t *` (ours, and from `wasmtime_func_type`) | the caller | `wasm_functype_delete`, after `define_func` copies it / after reading counts |
@@ -129,12 +131,12 @@ fun main() {
 | `LinkError` | `Closed` | linker, store, module or engine closed |
 | | `Define(msg)` | `wasmtime_linker_define_func` error (e.g. the name is already defined) |
 | | `Instantiate(msg)` | `wasmtime_linker_instantiate` error: missing import, wrong import type, store limit exceeded |
-| | `Trap(msg)` | the start function trapped |
+| | `Trap(msg)` | the start function trapped, or a host function it called failed (an error with a wasm backtrace) |
 | | `OutOfFuel` | the start function ran out of fuel (trap code 11) |
 | `CallError` | `Closed` | store closed |
 | | `MissingExport(name)` | no export by that name |
 | | `NotAFunction(name)` | the export isn't a function |
-| | `Arguments(msg)` | wrong argument count (checked by us) or type (wasmtime's error) |
+| | `Arguments(msg)` | wrong argument count (checked by us) or type (wasmtime's error without a wasm backtrace) |
 | | `UnsupportedType(msg)` | the function returns something other than i32/i64 |
 | | `Trap(msg)` | any trap but fuel: `unreachable`, out-of-bounds guest access, a host `Err` |
 | | `OutOfFuel` | trap code 11 |

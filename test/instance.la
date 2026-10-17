@@ -6,8 +6,7 @@
 import wasmtime { Engine, Store, Module, Linker, Instance, Val, CallError };
 
 /** A guest with functions of each shape the tests call. */
-fun guest(): string =
-    "(module (memory (export \"memory\") 1) (func (export \"echo32\") (param i32) (result i32) (local.get 0)) (func (export \"echo64\") (param i64) (result i64) (local.get 0)) (func (export \"pair\") (param i32 i64) (result i64 i32) (local.get 1) (local.get 0)) (func (export \"nothing\")) (func (export \"half\") (result f32) (f32.const 0.5)) (func (export \"takes_f32\") (param f32)) (func (export \"boom\") unreachable) (func (export \"far\") (result i32) (i32.load (i32.const 70000))) (func (export \"spin\") (loop $l (br $l))))";
+fun guest(): string = "(module (memory (export \"memory\") 1) (func (export \"echo32\") (param i32) (result i32) (local.get 0)) (func (export \"echo64\") (param i64) (result i64) (local.get 0)) (func (export \"pair\") (param i32 i64) (result i64 i32) (local.get 1) (local.get 0)) (func (export \"nothing\")) (func (export \"half\") (result f32) (f32.const 0.5)) (func (export \"takes_f32\") (param f32)) (func (export \"boom\") unreachable) (func (export \"far\") (result i32) (i32.load (i32.const 70000))) (func (export \"spin\") (loop $l (br $l))))";
 
 /** An engine, a store with `fuel`, and an instance of `guest()`. */
 fun start(fuel: u64): (Engine, Store, Instance) {
@@ -56,7 +55,10 @@ fun an_export_that_isnt_a_function_is_an_error() {
 @test
 fun the_wrong_argument_count_is_an_error() {
     let (engine, store, instance) = start(100000);
-    assert_eq(instance.call("echo32", []), Err(CallError.Arguments("echo32 takes 1 arguments, got 0")));
+    assert_eq(
+        instance.call("echo32", []),
+        Err(CallError.Arguments("echo32 takes 1 arguments, got 0")),
+    );
     assert_eq(
         instance.call("echo32", [Val.I32(1), Val.I32(2)]),
         Err(CallError.Arguments("echo32 takes 1 arguments, got 2")),
@@ -68,11 +70,11 @@ fun the_wrong_argument_count_is_an_error() {
 fun the_wrong_argument_type_is_an_error() {
     let (engine, store, instance) = start(100000);
     match instance.call("echo32", [Val.I64(1)]) {
-        Err(CallError.Arguments(msg)) => assert(msg.contains("type mismatch")),
+        Err(Arguments(msg)) => assert(msg.contains("type mismatch")),
         _ => assert(false),
     }
     match instance.call("takes_f32", [Val.I32(1)]) {
-        Err(CallError.Arguments(msg)) => assert(msg.contains("type mismatch")),
+        Err(Arguments(msg)) => assert(msg.contains("type mismatch")),
         _ => assert(false),
     }
     stop(engine, store);
@@ -82,7 +84,7 @@ fun the_wrong_argument_type_is_an_error() {
 fun a_result_that_isnt_i32_or_i64_is_unsupported() {
     let (engine, store, instance) = start(100000);
     match instance.call("half", []) {
-        Err(CallError.UnsupportedType(msg)) => assert(msg.contains("half")),
+        Err(UnsupportedType(msg)) => assert(msg.contains("half")),
         _ => assert(false),
     }
     stop(engine, store);
@@ -92,7 +94,7 @@ fun a_result_that_isnt_i32_or_i64_is_unsupported() {
 fun unreachable_is_a_trap() {
     let (engine, store, instance) = start(100000);
     match instance.call("boom", []) {
-        Err(CallError.Trap(msg)) => assert(msg.contains("unreachable")),
+        Err(Trap(msg)) => assert(msg.contains("unreachable")),
         _ => assert(false),
     }
     stop(engine, store);
@@ -102,7 +104,7 @@ fun unreachable_is_a_trap() {
 fun a_guest_reading_past_its_memory_traps() {
     let (engine, store, instance) = start(100000);
     match instance.call("far", []) {
-        Err(CallError.Trap(msg)) => assert(msg.contains("out of bounds memory access")),
+        Err(Trap(msg)) => assert(msg.contains("out of bounds memory access")),
         _ => assert(false),
     }
     stop(engine, store);

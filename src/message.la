@@ -1,0 +1,73 @@
+/**
+ * Turns wasmtime's errors and traps into Lugha values, freeing them. Package
+ * use only: nothing here is public.
+ *
+ * Depends on: raw
+ * Used by: engine, module, linker, instance
+ */
+
+import raw;
+
+/** How a guest stopped: out of fuel, or any other trap with its message. */
+enum Stop {
+    Trap(string),
+    OutOfFuel,
+}
+
+/** Copies a byte vector's text and frees the vector. */
+fun take_text(vec: raw.wasm_byte_vec_t): string {
+    let mut v = vec;
+    let mut bytes: u8[] = [];
+    // An empty vector's data may be NULL, which `c_read` refuses.
+    if v.size > 0 {
+        bytes = c_read(v.data, 0, v.size);
+    }
+    raw.wasm_byte_vec_delete(mut v);
+    // wasm_message_t counts its terminating NUL in `size` (wasm.h: "null terminated").
+    if bytes.len > 0 && bytes[bytes.len - 1] == 0 {
+        bytes.pop();
+    }
+    match string_from_utf8(bytes) {
+        Ok(text) => text,
+        Err(_) => "<wasmtime gave a message that isn't UTF-8>",
+    }
+}
+
+/** An empty byte vector for C to fill. */
+fun empty_vec(): raw.wasm_byte_vec_t = raw.wasm_byte_vec_t { size: 0, data: CPtr.null };
+
+/** Returns the error's message and frees the error. */
+fun error_text(error: raw.wasmtime_error_t): string {
+    let mut vec = empty_vec();
+    raw.wasmtime_error_message(error, out vec);
+    raw.wasmtime_error_delete(error);
+    take_text(vec)
+}
+
+/**
+ * Whether `error` happened while guest code ran (it carries a wasm backtrace),
+ * as a host function's trap does, rather than before (bad arguments, a
+ * missing import). Doesn't free `error`.
+ */
+fun error_while_running(error: raw.wasmtime_error_t): bool {
+    let mut frames = raw.wasm_frame_vec_t { size: 0, data: CPtr.null };
+    raw.wasmtime_error_wasm_trace(error, out frames);
+    let ran = frames.size > 0;
+    raw.wasm_frame_vec_delete(mut frames);
+    ran
+}
+
+/** Classifies a trap by its code, reads its message, and frees it. */
+fun trap_stop(trap: raw.wasm_trap_t): Stop {
+    let mut code: u8 = 0;
+    let has_code = raw.wasmtime_trap_code(trap, out code);
+    let mut vec = empty_vec();
+    raw.wasm_trap_message(trap, out vec);
+    raw.wasm_trap_delete(trap);
+    let text = take_text(vec);
+    if has_code && code == raw.WASMTIME_TRAP_CODE_OUT_OF_FUEL() {
+        Stop.OutOfFuel
+    } else {
+        Stop.Trap(text)
+    }
+}

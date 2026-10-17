@@ -1,0 +1,99 @@
+/**
+ * Compiled WebAssembly modules, from bytes or from WebAssembly text. Not
+ * responsible for running them: see `linker` and `instance`.
+ *
+ * Depends on: raw, message, engine
+ * Used by: linker, lib
+ */
+
+import raw;
+import message;
+import engine as engines { Engine };
+
+/** Why a module didn't compile. */
+public enum CompileError {
+    /** The engine was closed. */
+    Closed,
+    /** The WebAssembly text didn't parse; wasmtime's message, with a line and column. */
+    Text(string),
+    /** The bytes aren't a valid WebAssembly module; wasmtime's message. */
+    Wasm(string),
+}
+
+/** A compiled module, ready to instantiate into any store of its engine. */
+public struct Module {
+    handle: raw.wasmtime_module_t,
+    live: Ref<bool>,
+}
+
+impl Module {
+    /**
+     * Compiles and validates a WebAssembly binary.
+     *
+     * @param bytes the module's bytes (`\0asm` first)
+     * @returns the module, freed with `close()`; `Err(Wasm)` with wasmtime's
+     *     message if the bytes don't validate; `Err(Closed)` if `engine` was closed
+     *
+     * Example:
+     *     let module = Module.new(engine, read_bytes("app.wasm")?)?;
+     */
+    public fun new(engine: Engine, bytes: u8[]): Result<Module, CompileError> {
+        if !engine.is_live() {
+            return Err(CompileError.Closed);
+        }
+        let mut module: Option<raw.wasmtime_module_t> = None;
+        if let Some(error) = raw.wasmtime_module_new(
+            engine.handle,
+            bytes,
+            bytes.len as u64,
+            out module,
+        ) {
+            return Err(CompileError.Wasm(message.error_text(error)));
+        }
+        match module {
+            Some(handle) => Ok(Module { handle: handle, live: Ref.new(true) }),
+            None => panic("wasmtime: wasmtime_module_new gave neither a module nor an error"),
+        }
+    }
+
+    /**
+     * Compiles WebAssembly text (the `.wat` format), so tests and examples need no other toolchain.
+     *
+     * @param text the module, such as `(module (func (export "f")))`
+     * @returns the module, freed with `close()`; `Err(Text)` if the text
+     *     doesn't parse, `Err(Wasm)` if it parses but doesn't validate;
+     *     `Err(Closed)` if `engine` was closed
+     *
+     * Example:
+     *     let module = Module.from_text(engine, "(module)")?;
+     */
+    public fun from_text(engine: Engine, text: string): Result<Module, CompileError> {
+        if !engine.is_live() {
+            return Err(CompileError.Closed);
+        }
+        let mut vec = message.empty_vec();
+        if let Some(error) = raw.wasmtime_wat2wasm(text, text.len as u64, out vec) {
+            return Err(CompileError.Text(message.error_text(error)));
+        }
+        let bytes = c_read(vec.data, 0, vec.size);
+        raw.wasm_byte_vec_delete(mut vec);
+        Module.new(engine, bytes)
+    }
+
+    /**
+     * Frees the module. Instances already made from it keep working; it can't
+     * be instantiated again. Closing twice does nothing.
+     *
+     * Example:
+     *     module.close();
+     */
+    public fun close(self) {
+        if self.live.get() {
+            self.live.set(false);
+            raw.wasmtime_module_delete(self.handle);
+        }
+    }
+
+    /** Whether `close()` hasn't been called. */
+    fun is_live(self): bool = self.live.get();
+}

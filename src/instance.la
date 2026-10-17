@@ -1,0 +1,230 @@
+/**
+ * Running instances: calling their exported functions with i32/i64 values
+ * and reaching their exported memories. Not responsible for making them:
+ * see `linker`.
+ *
+ * Depends on: raw, message, engine, memory
+ * Used by: linker, lib
+ */
+
+import raw;
+import message { Stop };
+import engine { Store };
+import memory { Memory, MemoryError };
+
+/** The type of a value crossing between host and guest. Only i32 and i64 are supported. */
+public enum ValType {
+    /** A 32-bit integer. */
+    I32,
+    /** A 64-bit integer. */
+    I64,
+}
+
+/** A value crossing between host and guest. */
+public enum Val {
+    /** A 32-bit integer; guests use these for pointers and lengths too. */
+    I32(i32),
+    /** A 64-bit integer. */
+    I64(i64),
+}
+
+/** Why a call failed. */
+public enum CallError {
+    /** The instance's store was closed. */
+    Closed,
+    /** The instance has no export by this name. */
+    MissingExport(string),
+    /** The export by this name isn't a function. */
+    NotAFunction(string),
+    /** The arguments don't match the function's parameters, in count or type. */
+    Arguments(string),
+    /** The function returned a type other than i32 or i64. */
+    UnsupportedType(string),
+    /** The guest trapped (`unreachable`, a bad memory access, a host function's `Err`, …), with wasmtime's message. */
+    Trap(string),
+    /** The store ran out of fuel. */
+    OutOfFuel,
+}
+
+/** The `wasm_valkind_t` of a value type. */
+fun valtype_kind(t: ValType): u8 = match t {
+    I32 => raw.WASM_I32(),
+    I64 => raw.WASM_I64(),
+};
+
+/** The type of a value. */
+fun val_type(v: Val): ValType = match v {
+    I32(_) => ValType.I32,
+    I64(_) => ValType.I64,
+};
+
+/** The name WebAssembly text uses for a `wasmtime_valkind_t`. */
+fun kind_name(kind: u8): string = match kind {
+    0 => "i32",
+    1 => "i64",
+    2 => "f32",
+    3 => "f64",
+    4 => "v128",
+    _ => "a reference",
+};
+
+/** The C form of a value. */
+fun val_to_raw(v: Val): raw.wasmtime_val_t = match v {
+    I32(n) => raw.wasmtime_val_t {
+        kind: raw.WASMTIME_I32(),
+        of_: raw.wasmtime_valunion_t { i32_: n },
+    },
+    I64(n) => raw.wasmtime_val_t {
+        kind: raw.WASMTIME_I64(),
+        of_: raw.wasmtime_valunion_t { i64_: n },
+    },
+};
+
+/** The Lugha form of a C value, read by its kind; `None` for a type other than i32/i64. */
+fun val_from_raw(v: raw.wasmtime_val_t): Option<Val> {
+    if v.kind == raw.WASMTIME_I32() {
+        Some(Val.I32(v.of_.i32_))
+    } else if v.kind == raw.WASMTIME_I64() {
+        Some(Val.I64(v.of_.i64_))
+    } else {
+        None
+    }
+}
+
+/** A value for C to overwrite. */
+fun zero_val(): raw.wasmtime_val_t = val_to_raw(Val.I64(0));
+
+/**
+ * The `size` of the `const wasm_valtype_vec_t *` at `vec`: its first field,
+ * a `size_t`, read as 8 little-endian bytes. Reads a number only; no pointer is made.
+ */
+fun vec_size(vec: CPtr): i64 {
+    let bytes = c_read(vec, 0, 8);
+    let mut size: u64 = 0;
+    let mut i = 7;
+    while i >= 0 {
+        size = size << 8 | bytes[i] as u64;
+        i = i - 1;
+    }
+    size as i64
+}
+
+/** An instance of a module in a store: its functions and memories, by export name. */
+public struct Instance {
+    instance: raw.wasmtime_instance_t,
+    store: Store,
+}
+
+impl Instance {
+    /**
+     * Calls the exported function `name` with `args`, under the store's fuel.
+     *
+     * @param name the export's name
+     * @param args one value per parameter, in order
+     * @returns the function's results, in order; `Err(MissingExport)`,
+     *     `Err(NotAFunction)`, `Err(Arguments)` for the wrong count or types,
+     *     `Err(UnsupportedType)` for a result that isn't i32/i64,
+     *     `Err(Trap)` with wasmtime's message, `Err(OutOfFuel)`, or `Err(Closed)`
+     *     if the store was closed. A trap leaves the instance usable.
+     *
+     * Example:
+     *     let results = instance.call("add", [Val.I64(40), Val.I64(2)])?;
+     */
+    public fun call(self, name: string, args: Val[]): Result<Val[], CallError> {
+        if !self.store.live.get() {
+            return Err(CallError.Closed);
+        }
+        let context = self.store.context;
+        let mut item = memory.empty_extern();
+        if !raw.wasmtime_instance_export_get(
+            context,
+            ptr self.instance,
+            name,
+            name.len as u64,
+            out item,
+        ) {
+            return Err(CallError.MissingExport(name));
+        }
+        let kind = item.kind;
+        let func = item.of_.func;
+        // A func has no destructor, so `func` stays valid after the extern is freed.
+        raw.wasmtime_extern_delete(mut item);
+        if kind != raw.WASMTIME_EXTERN_FUNC() {
+            return Err(CallError.NotAFunction(name));
+        }
+        let ty = raw.wasmtime_func_type(context, ptr func);
+        let params = vec_size(raw.wasm_functype_params(ty));
+        let count = vec_size(raw.wasm_functype_results(ty));
+        raw.wasm_functype_delete(ty);
+        if args.len != params {
+            return Err(CallError.Arguments("{name} takes {params} arguments, got {args.len}"));
+        }
+        let mut results = [zero_val(); count];
+        let mut trap: Option<raw.wasm_trap_t> = None;
+        self.store.enter();
+        let error = raw.wasmtime_func_call(
+            context,
+            ptr func,
+            args.map(val_to_raw),
+            args.len as u64,
+            mut results,
+            count as u64,
+            out trap,
+        );
+        self.store.leave();
+        if let Some(e) = error {
+            // A host function's trap comes back as an error too, but with a wasm
+            // backtrace; bad arguments are refused before any guest code runs.
+            if message.error_while_running(e) {
+                return Err(CallError.Trap(message.error_text(e)));
+            }
+            return Err(CallError.Arguments(message.error_text(e)));
+        }
+        if let Some(t) = trap {
+            return match message.trap_stop(t) {
+                OutOfFuel => Err(CallError.OutOfFuel),
+                Trap(text) => Err(CallError.Trap(text)),
+            };
+        }
+        let mut values: Val[] = [];
+        for r of results {
+            match val_from_raw(r) {
+                Some(v) => values.push(v),
+                None => {
+                    return Err(
+                        CallError.UnsupportedType(
+                            "{name} returned {kind_name(r.kind)} as result {values.len}; only i32 and i64 are supported",
+                        ),
+                    );
+                }
+            }
+        }
+        Ok(values)
+    }
+
+    /**
+     * Returns the exported linear memory `name`.
+     *
+     * @returns the memory, valid while the store is open; `Err(MissingExport)`,
+     *     `Err(NotAMemory)`, or `Err(Closed)` if the store was closed
+     *
+     * Example:
+     *     let memory = instance.memory("memory")?;
+     */
+    public fun memory(self, name: string): Result<Memory, MemoryError> {
+        if !self.store.live.get() {
+            return Err(MemoryError.Closed);
+        }
+        let mut item = memory.empty_extern();
+        if !raw.wasmtime_instance_export_get(
+            self.store.context,
+            ptr self.instance,
+            name,
+            name.len as u64,
+            out item,
+        ) {
+            return Err(MemoryError.MissingExport(name));
+        }
+        memory.memory_from(item, name, self.store.context, self.store.live)
+    }
+}

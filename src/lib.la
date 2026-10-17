@@ -1,7 +1,20 @@
 /**
- * wasmtime: a Lugha library. This is its entry, `import wasmtime;`;
- * its other modules live beside it in `src/`.
+ * wasmtime for Lugha: run untrusted WebAssembly. `import wasmtime { … };`
+ * gives engines and stores (with fuel and limits), modules, a linker for host
+ * functions, instances to call, and bounds-checked guest memory. Every
+ * failure, a guest trap included, is a typed `Err`.
+ *
+ * Free what you make with `close()`; using anything after its store closes
+ * is `Err(Closed)`, never a crash. A guest gets no host function, file,
+ * network or environment access unless you define one.
+ *
+ * The C API itself is in `wasmtime.raw`, which this entry doesn't re-export.
+ *
+ * Depends on: engine, module, linker, instance, memory
  */
 
-// Returns a greeting from this library.
-public fun greet(who: string): string = "Hello, {who}, from wasmtime!";
+public import engine { Engine, Store, StoreError, Limits };
+public import module { Module, CompileError };
+public import linker { Linker, LinkError, Caller };
+public import instance { Instance, Val, ValType, CallError };
+public import memory { Memory, MemoryError };

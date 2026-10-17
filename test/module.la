@@ -42,7 +42,10 @@ fun compiles_from_bytes() {
 @test
 fun compiles_from_text() {
     let engine = Engine.new();
-    let module = Module.from_text(engine, "(module (func (export \"f\") (result i32) i32.const 42))").unwrap();
+    let module = Module.from_text(
+        engine,
+        "(module (func (export \"f\") (result i32) i32.const 42))",
+    ).unwrap();
     assert_eq(call_f(engine, module), [Val.I32(42)]);
     module.close();
     engine.close();
@@ -52,7 +55,7 @@ fun compiles_from_text() {
 fun bad_text_is_a_text_error() {
     let engine = Engine.new();
     match Module.from_text(engine, "(module") {
-        Err(CompileError.Text(msg)) => assert(msg.contains("expected")),
+        Err(Text(msg)) => assert(msg.contains("expected")),
         _ => assert(false),
     }
     engine.close();
@@ -68,7 +71,7 @@ fun truncated_bytes_are_a_wasm_error() {
         }
     }
     match Module.new(engine, bytes) {
-        Err(CompileError.Wasm(msg)) => assert(msg.len > 0),
+        Err(Wasm(msg)) => assert(msg.len > 0),
         _ => assert(false),
     }
     engine.close();
@@ -78,7 +81,7 @@ fun truncated_bytes_are_a_wasm_error() {
 fun no_bytes_are_a_wasm_error() {
     let engine = Engine.new();
     match Module.new(engine, []) {
-        Err(CompileError.Wasm(_)) => {}
+        Err(Wasm(_)) => {}
         _ => assert(false),
     }
     engine.close();
@@ -88,7 +91,7 @@ fun no_bytes_are_a_wasm_error() {
 fun a_module_that_fails_validation_is_a_wasm_error() {
     let engine = Engine.new();
     match Module.from_text(engine, "(module (func (result i32)))") {
-        Err(CompileError.Wasm(msg)) => assert(msg.contains("type mismatch")),
+        Err(Wasm(msg)) => assert(msg.contains("type mismatch")),
         _ => assert(false),
     }
     engine.close();
@@ -99,11 +102,11 @@ fun a_closed_engine_compiles_nothing() {
     let engine = Engine.new();
     engine.close();
     match Module.new(engine, answer_bytes()) {
-        Err(CompileError.Closed) => {}
+        Err(Closed) => {}
         _ => assert(false),
     }
     match Module.from_text(engine, "(module)") {
-        Err(CompileError.Closed) => {}
+        Err(Closed) => {}
         _ => assert(false),
     }
 }

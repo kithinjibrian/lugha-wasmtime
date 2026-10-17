@@ -53,6 +53,12 @@ public extern struct wasm_valtype_vec_t {
     data: CPtr,
 }
 
+/** `wasm_frame_vec_t` (wasm.h, `WASM_DECLARE_VEC(frame, *)`): `data` is `wasm_frame_t **`. */
+public extern struct wasm_frame_vec_t {
+    size: u64,
+    data: CPtr,
+}
+
 /** `wasmtime_instance_t` (wasmtime/instance.h). */
 public extern struct wasmtime_instance_t {
     store_id: u64,
@@ -183,27 +189,50 @@ public extern fun wasm_engine_delete(engine: wasm_engine_t);
  * Returns a store the caller frees with `wasmtime_store_delete` (wasmtime/store.h).
  * `finalizer` is `void (*)(void *)`, always NULL here, so `Option<CPtr>` (DECISION-007).
  */
-public extern fun wasmtime_store_new(engine: wasm_engine_t, data: Option<CPtr>, finalizer: Option<CPtr>): wasmtime_store_t;
+public extern fun wasmtime_store_new(
+    engine: wasm_engine_t,
+    data: Option<CPtr>,
+    finalizer: Option<CPtr>,
+): wasmtime_store_t;
 
 /** Returns the store's context, owned by the store (wasmtime/store.h). */
 public extern fun wasmtime_store_context(store: wasmtime_store_t): wasmtime_context_t;
 
 /** Sets the store's resource limits; a negative value keeps wasmtime's default (wasmtime/store.h). */
-public extern fun wasmtime_store_limiter(store: wasmtime_store_t, memory_size: i64, table_elements: i64, instances: i64, tables: i64, memories: i64);
+public extern fun wasmtime_store_limiter(
+    store: wasmtime_store_t,
+    memory_size: i64,
+    table_elements: i64,
+    instances: i64,
+    tables: i64,
+    memories: i64,
+);
 
 /** Frees a store and everything in it (wasmtime/store.h). */
 public extern fun wasmtime_store_delete(store: wasmtime_store_t);
 
 /** Sets the fuel left; a returned error is the caller's, freed with `wasmtime_error_delete` (wasmtime/store.h). */
-public extern fun wasmtime_context_set_fuel(store: wasmtime_context_t, fuel: u64): Option<wasmtime_error_t>;
+public extern fun wasmtime_context_set_fuel(
+    store: wasmtime_context_t,
+    fuel: u64,
+): Option<wasmtime_error_t>;
 
 /** Reads the fuel left; a returned error is the caller's, freed with `wasmtime_error_delete` (wasmtime/store.h). */
-public extern fun wasmtime_context_get_fuel(context: wasmtime_context_t, out fuel: u64): Option<wasmtime_error_t>;
+public extern fun wasmtime_context_get_fuel(
+    context: wasmtime_context_t,
+    out fuel: u64,
+): Option<wasmtime_error_t>;
 
 // ---- Errors, traps and byte vectors ----
 
 /** Fills `message` with the error's text, which the caller frees with `wasm_byte_vec_delete` (wasmtime/error.h). */
 public extern fun wasmtime_error_message(error: wasmtime_error_t, out message: wasm_byte_vec_t);
+
+/** Fills `out_` with the wasm frames the error happened in, if any, freed with `wasm_frame_vec_delete` (wasmtime/error.h). */
+public extern fun wasmtime_error_wasm_trace(error: wasmtime_error_t, out out_: wasm_frame_vec_t);
+
+/** Frees a frame vector and its frames (wasm.h, `WASM_DECLARE_VEC(frame, *)`). */
+public extern fun wasm_frame_vec_delete(mut vec: wasm_frame_vec_t);
 
 /** Frees an error (wasmtime/error.h). */
 public extern fun wasmtime_error_delete(error: wasmtime_error_t);
@@ -226,10 +255,19 @@ public extern fun wasm_byte_vec_delete(mut vec: wasm_byte_vec_t);
 // ---- Modules ----
 
 /** Fills `ret` with the binary of WebAssembly text `wat`, freed with `wasm_byte_vec_delete`; an error is the caller's (wasmtime/wat.h). */
-public extern fun wasmtime_wat2wasm(wat: string, wat_len: u64, out ret: wasm_byte_vec_t): Option<wasmtime_error_t>;
+public extern fun wasmtime_wat2wasm(
+    wat: string,
+    wat_len: u64,
+    out ret: wasm_byte_vec_t,
+): Option<wasmtime_error_t>;
 
 /** Compiles `wasm` into `ret`, freed with `wasmtime_module_delete`; on error `ret` stays `None` and the error is the caller's (wasmtime/module.h). */
-public extern fun wasmtime_module_new(engine: wasm_engine_t, wasm: u8[], wasm_len: u64, out ret: Option<wasmtime_module_t>): Option<wasmtime_error_t>;
+public extern fun wasmtime_module_new(
+    engine: wasm_engine_t,
+    wasm: u8[],
+    wasm_len: u64,
+    out ret: Option<wasmtime_module_t>,
+): Option<wasmtime_error_t>;
 
 /** Frees a module; instances made from it keep it alive internally (wasmtime/module.h). */
 public extern fun wasmtime_module_delete(m: wasmtime_module_t);
@@ -240,13 +278,20 @@ public extern fun wasmtime_module_delete(m: wasmtime_module_t);
 public extern fun wasm_valtype_new(kind: u8): wasm_valtype_t;
 
 /** Fills `out_` with `size` value types from `data`, taking ownership of them (wasm.h, `WASM_DECLARE_VEC(valtype, *)`). */
-public extern fun wasm_valtype_vec_new(out out_: wasm_valtype_vec_t, size: u64, data: wasm_valtype_t[]);
+public extern fun wasm_valtype_vec_new(
+    out out_: wasm_valtype_vec_t,
+    size: u64,
+    data: wasm_valtype_t[],
+);
 
 /** Fills `out_` with an empty vector (wasm.h, `WASM_DECLARE_VEC(valtype, *)`). */
 public extern fun wasm_valtype_vec_new_empty(out out_: wasm_valtype_vec_t);
 
 /** Returns a function type taking ownership of both vectors' contents; freed with `wasm_functype_delete` (wasm.h). */
-public extern fun wasm_functype_new(mut params: wasm_valtype_vec_t, mut results: wasm_valtype_vec_t): wasm_functype_t;
+public extern fun wasm_functype_new(
+    mut params: wasm_valtype_vec_t,
+    mut results: wasm_valtype_vec_t,
+): wasm_functype_t;
 
 /** Returns the parameter types, a `const wasm_valtype_vec_t *` owned by the function type (wasm.h). */
 public extern fun wasm_functype_params(functype: wasm_functype_t): CPtr;
@@ -297,13 +342,22 @@ public extern fun wasmtime_linker_delete(linker: wasmtime_linker_t);
 // ---- Instances, exports and calls ----
 
 /** Fills `item`, freed with `wasmtime_extern_delete`, and returns true if the export exists (wasmtime/instance.h). */
-public extern fun wasmtime_instance_export_get(store: wasmtime_context_t, ptr instance: wasmtime_instance_t, name: string, name_len: u64, out item: wasmtime_extern_t): bool;
+public extern fun wasmtime_instance_export_get(
+    store: wasmtime_context_t,
+    ptr instance: wasmtime_instance_t,
+    name: string,
+    name_len: u64,
+    out item: wasmtime_extern_t,
+): bool;
 
 /** Frees what an extern owns: nothing for a func or memory, which have no destructor (wasmtime/extern.h). */
 public extern fun wasmtime_extern_delete(mut val: wasmtime_extern_t);
 
 /** Returns the function's type, owned by the caller and freed with `wasm_functype_delete` (wasmtime/func.h). */
-public extern fun wasmtime_func_type(store: wasmtime_context_t, ptr func: wasmtime_func_t): wasm_functype_t;
+public extern fun wasmtime_func_type(
+    store: wasmtime_context_t,
+    ptr func: wasmtime_func_t,
+): wasm_functype_t;
 
 /** Calls `func`; an error (bad arguments) or a trap is the caller's (wasmtime/func.h). */
 public extern fun wasmtime_func_call(
@@ -317,7 +371,12 @@ public extern fun wasmtime_func_call(
 ): Option<wasmtime_error_t>;
 
 /** Fills `item`, freed with `wasmtime_extern_delete`, with the calling instance's export (wasmtime/func.h). */
-public extern fun wasmtime_caller_export_get(caller: wasmtime_caller_t, name: string, name_len: u64, out item: wasmtime_extern_t): bool;
+public extern fun wasmtime_caller_export_get(
+    caller: wasmtime_caller_t,
+    name: string,
+    name_len: u64,
+    out item: wasmtime_extern_t,
+): bool;
 
 /** Returns the caller's store context, valid during the host call (wasmtime/func.h). */
 public extern fun wasmtime_caller_context(caller: wasmtime_caller_t): wasmtime_context_t;
@@ -325,7 +384,13 @@ public extern fun wasmtime_caller_context(caller: wasmtime_caller_t): wasmtime_c
 // ---- Memory ----
 
 /** Returns the memory's base, owned by the store; valid until the guest grows it (wasmtime/memory.h). */
-public extern fun wasmtime_memory_data(store: wasmtime_context_t, ptr memory: wasmtime_memory_t): CPtr;
+public extern fun wasmtime_memory_data(
+    store: wasmtime_context_t,
+    ptr memory: wasmtime_memory_t,
+): CPtr;
 
 /** Returns the memory's size in bytes (wasmtime/memory.h). */
-public extern fun wasmtime_memory_data_size(store: wasmtime_context_t, ptr memory: wasmtime_memory_t): u64;
+public extern fun wasmtime_memory_data_size(
+    store: wasmtime_context_t,
+    ptr memory: wasmtime_memory_t,
+): u64;

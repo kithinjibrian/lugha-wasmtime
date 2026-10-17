@@ -1,0 +1,270 @@
+/**
+ * Linking: host functions written as Lugha closures, and instantiating
+ * modules against them. A guest gets only the host functions defined here;
+ * none exist by default. Not responsible for calling exports: see `instance`.
+ *
+ * Depends on: raw, message, engine, module, instance, memory
+ * Used by: lib
+ */
+
+import raw;
+import message;
+import engine as engines { Engine, Store };
+import module as modules { Module };
+import instance;
+import memory;
+
+/** Why defining a host function or instantiating a module failed. */
+public enum LinkError {
+    /** The linker, store, module or engine was closed. */
+    Closed,
+    /** wasmtime refused the definition (for example, the name is already defined); its message. */
+    Define(string),
+    /** Instantiation failed before running: a missing or mistyped import, or a store limit; wasmtime's message. */
+    Instantiate(string),
+    /** The module's start function trapped; wasmtime's message. */
+    Trap(string),
+    /** The module's start function ran out of fuel. */
+    OutOfFuel,
+}
+
+/**
+ * The guest calling a host function, valid only during that call. A
+ * `Caller`, or a memory taken from one, kept past the call answers `Err(Closed)`.
+ */
+public struct Caller {
+    caller: raw.wasmtime_caller_t,
+    live: Ref<bool>,
+}
+
+impl Caller {
+    /**
+     * Returns the calling instance's exported memory `name`, so a guest can pass
+     * a (pointer, length) for the host to read or write.
+     *
+     * @returns the memory, valid until the host function returns;
+     *     `Err(MissingExport)`, `Err(NotAMemory)`, or `Err(Closed)` after the call
+     *
+     * Example:
+     *     let bytes = caller.memory("memory")?.read(ptr, len)?;
+     */
+    public fun memory(self, name: string): Result<memory.Memory, memory.MemoryError> {
+        if !self.live.get() {
+            return Err(memory.MemoryError.Closed);
+        }
+        let mut item = memory.empty_extern();
+        if !raw.wasmtime_caller_export_get(self.caller, name, name.len as u64, out item) {
+            return Err(memory.MemoryError.MissingExport(name));
+        }
+        memory.memory_from(item, name, raw.wasmtime_caller_context(self.caller), self.live)
+    }
+}
+
+/** A `wasm_valtype_vec_t` holding `types`, owned by the caller until given to `wasm_functype_new`. */
+fun valtype_vec(types: instance.ValType[]): raw.wasm_valtype_vec_t {
+    let mut vec = raw.wasm_valtype_vec_t { size: 0, data: CPtr.null };
+    if types.len == 0 {
+        raw.wasm_valtype_vec_new_empty(out vec);
+    } else {
+        let valtypes = types.map(
+            fun(t: instance.ValType): raw.wasm_valtype_t = raw.wasm_valtype_new(
+                instance.valtype_kind(t),
+            ),
+        );
+        raw.wasm_valtype_vec_new(out vec, types.len as u64, valtypes);
+    }
+    vec
+}
+
+/** The name WebAssembly text uses for a value type. */
+fun type_name(t: instance.ValType): string = match t {
+    I32 => "i32",
+    I64 => "i64",
+};
+
+/**
+ * Checks a host function's results against its declared types.
+ *
+ * @returns `None` if they match, or the trap message saying how they don't
+ */
+fun results_mismatch(label: string, got: instance.Val[], want: instance.ValType[]): Option<string> {
+    if got.len != want.len {
+        return Some("host function {label} returned {got.len} results, expected {want.len}");
+    }
+    let mut i = 0;
+    while i < got.len {
+        let have = instance.val_type(got[i]);
+        if have != want[i] {
+            return Some(
+                "host function {label} returned {type_name(have)} as result {i}, expected {type_name(want[i])}",
+            );
+        }
+        i = i + 1;
+    }
+    None
+}
+
+/** Collects wasmtime's arguments as values; `None` if one isn't i32/i64, which the declared type rules out. */
+fun args_from_raw(args: raw.wasmtime_val_t[]): Option<instance.Val[]> {
+    let mut values: instance.Val[] = [];
+    for a of args {
+        values.push(instance.val_from_raw(a)?);
+    }
+    Some(values)
+}
+
+/** Makes links between modules and host functions. Defined functions are kept for every instance made through it. */
+public struct Linker {
+    handle: raw.wasmtime_linker_t,
+    live: Ref<bool>,
+}
+
+impl Linker {
+    /**
+     * Makes a linker with no definitions.
+     *
+     * @returns the linker, freed with `close()`; `Err(Closed)` if `engine` was closed
+     *
+     * Example:
+     *     let linker = Linker.new(engine)?;
+     */
+    public fun new(engine: Engine): Result<Linker, LinkError> {
+        if !engine.is_live() {
+            return Err(LinkError.Closed);
+        }
+        Ok(Linker { handle: raw.wasmtime_linker_new(engine.handle), live: Ref.new(true) })
+    }
+
+    /**
+     * Defines the host function `module`.`name`, which guests import, as `f`.
+     *
+     * `f` gets the calling guest and its arguments, typed as `params`. Its
+     * `Ok` values must match `results`; an `Err(message)`, or values that
+     * don't match, trap the guest with that message, so the guest's call ends
+     * in `CallError.Trap`. `f` must not panic (a panic ends the program) nor
+     * close the store it runs in.
+     *
+     * @param module the import's module name, such as `"env"`
+     * @param name the import's field name, such as `"log"`
+     * @returns `Ok(0)`; `Err(Define)` with wasmtime's message (a name defined
+     *     twice); `Err(Closed)` if the linker was closed
+     *
+     * Example:
+     *     linker.define("env", "add", [ValType.I64, ValType.I64], [ValType.I64], add)?;
+     */
+    public fun define(
+        self,
+        module: string,
+        name: string,
+        params: instance.ValType[],
+        results: instance.ValType[],
+        f: fun(Caller, instance.Val[]): Result<instance.Val[], string>,
+    ): Result<i64, LinkError> {
+        if !self.live.get() {
+            return Err(LinkError.Closed);
+        }
+        let mut param_vec = valtype_vec(params);
+        let mut result_vec = valtype_vec(results);
+        // wasm_functype_new takes both vectors' contents; nothing is left to free.
+        let ty = raw.wasm_functype_new(mut param_vec, mut result_vec);
+        let label = "{module}.{name}";
+        let error = raw.wasmtime_linker_define_func(self.handle, module, module.len as u64, name, name.len as u64, ty, fun(
+            caller: raw.wasmtime_caller_t,
+            args: raw.wasmtime_val_t[],
+            out_results: Ref<raw.wasmtime_val_t[]>,
+        ): Option<raw.wasm_trap_t> {
+            let values = match args_from_raw(args) {
+                Some(vs) => vs,
+                None => {
+                    let text = "host function {label} got an argument that isn't i32 or i64";
+                    return Some(raw.wasmtime_trap_new(text, text.len as u64));
+                }
+            };
+            let live = Ref.new(true);
+            let outcome = f(Caller { caller: caller, live: live }, values);
+            // Anything the closure kept from this call is dead from here on.
+            live.set(false);
+            let text = match outcome {
+                Err(text) => text,
+                Ok(got) => match results_mismatch(label, got, results) {
+                    Some(text) => text,
+                    None => {
+                        out_results.set(got.map(instance.val_to_raw));
+                        return None;
+                    }
+                },
+            };
+            // wasmtime takes ownership of a trap a host function returns.
+            Some(raw.wasmtime_trap_new(text, text.len as u64))
+        });
+        // define_func copies the type; ours is freed either way.
+        raw.wasm_functype_delete(ty);
+        match error {
+            Some(e) => Err(LinkError.Define(message.error_text(e))),
+            None => Ok(0),
+        }
+    }
+
+    /**
+     * Instantiates `module` in `store`, resolving its imports from this
+     * linker's definitions, and runs its start function if it has one.
+     *
+     * @returns the instance, valid while `store` is open; `Err(Instantiate)`
+     *     for a missing or mistyped import or a store limit; `Err(Trap)` or
+     *     `Err(OutOfFuel)` from the start function; `Err(Closed)` if the
+     *     linker, store or module was closed
+     *
+     * Example:
+     *     let instance = linker.instantiate(store, module)?;
+     */
+    public fun instantiate(
+        self,
+        store: Store,
+        module: Module,
+    ): Result<instance.Instance, LinkError> {
+        if !self.live.get() || !store.live.get() || !module.is_live() {
+            return Err(LinkError.Closed);
+        }
+        let mut made = raw.wasmtime_instance_t { store_id: 0, private_: 0 };
+        let mut trap: Option<raw.wasm_trap_t> = None;
+        store.enter();
+        let error = raw.wasmtime_linker_instantiate(
+            self.handle,
+            store.context,
+            module.handle,
+            out made,
+            out trap,
+        );
+        store.leave();
+        if let Some(e) = error {
+            // A host function trapping in the start function is an error with a
+            // wasm backtrace; linking failures happen before any guest code runs.
+            if message.error_while_running(e) {
+                return Err(LinkError.Trap(message.error_text(e)));
+            }
+            return Err(LinkError.Instantiate(message.error_text(e)));
+        }
+        if let Some(t) = trap {
+            return match message.trap_stop(t) {
+                OutOfFuel => Err(LinkError.OutOfFuel),
+                Trap(text) => Err(LinkError.Trap(text)),
+            };
+        }
+        Ok(instance.Instance { instance: made, store: store })
+    }
+
+    /**
+     * Frees the linker. Instances already made through it, and their host
+     * functions, keep working; wasmtime frees each host closure once nothing
+     * uses it. Closing twice does nothing.
+     *
+     * Example:
+     *     linker.close();
+     */
+    public fun close(self) {
+        if self.live.get() {
+            self.live.set(false);
+            raw.wasmtime_linker_delete(self.handle);
+        }
+    }
+}
