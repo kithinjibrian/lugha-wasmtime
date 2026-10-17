@@ -3,6 +3,15 @@
 **From:** lugha-wasmtime, session 3 (2026-10-17). **Decision:** DECISION-005 (resolved: fix lughac first).
 **For:** a lughac PRP in `../lugha`, written and built under that repo's rules. This file is a list of needs, not a design: the syntax is lughac's to choose.
 
+## Status (session 4, 2026-10-17, after lughac m102)
+
+`out` parameters (milestone 102, lugha PR #60) were checked against libwasmtime v49.0.3 at `-O0` and `-O2`: fuel into a variable, a field and an element; a trap code (with the zeroed slot when C writes nothing); `wasmtime_wat2wasm` filling a `wasm_byte_vec_t`; `wasmtime_module_new` into `Option` of a handle (`Some`, and `None` on a bad module). All correct.
+
+- 1 (out handle) and 2 (out number): **done**.
+- 4, 6: **partly**. C can fill a struct, but Lugha can't read the bytes it points to, free it (`wasm_byte_vec_delete` takes the vec by pointer), or pass a struct back by pointer.
+- 3, 5, 7, 8 and unions: **still open** (lughac TODO: `ptr`/`mut` pointers, arrays and unions across the boundary, raw C memory, callbacks with pointer parameters).
+- **New:** an `extern struct` can't hold `Option` of a handle (E0437), and one holding a plain handle has no starting value to give before C fills it (no NULL handle can be written). So `wasm_byte_vec_t { size_t size; uint8_t *data; }` is only declarable with `data` as a `u64`, which isn't acceptable in `raw`. Needed: a nullable pointer field in an extern struct, or a zeroed extern struct value.
+
 lughac 0.1.0 (`lughac spec` §8) passes numbers, `bool`, `string`, handles, callbacks and `extern struct` by value. wasmtime's C API (v49.0.3, `/usr/local/include`) passes nearly everything through pointers. Each need below names the header lines that need it.
 
 ## 1. Out-parameter to a handle (`T **`)

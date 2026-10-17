@@ -128,14 +128,42 @@ CONTEXT.md                       — this session
 
 ---
 
-## SESSION 4 — 2026-10-17 — Check lughac out-parameters (m102) — open
+## SESSION 4 — 2026-10-17 — Check lughac out-parameters (m102) — closed
 
 Branch: main
 
-(In progress.)
+### WHAT WAS DONE
+
+The owner reported lughac milestone 102 (`out` parameters on externs, lugha PR #60, tag m102). Checked it: the spec (§8) and `lughac explain E0443` match the report. A scratchpad probe linked against libwasmtime v49.0.3 passed at `-O0` and `-O2`: `wasmtime_context_get_fuel` into a variable, a field and an element; `wasmtime_trap_code` (zeroed slot when C writes nothing, 11 for out of fuel); `wasmtime_wat2wasm` filling a `wasm_byte_vec_t`; `wasmtime_module_new` giving `Some` and, for a bad module, `None` with an error. Diagnostics checked: E0443 both ways, E0201, E0409 for a `string`, E0501, E0403, and `out` as a variable name.
+
+Found one new gap: an `extern struct` can't hold `Option` of a handle (E0437), and one holding a plain handle can't be given a starting value before C fills it. `wasm_byte_vec_t` only declares with its `data` pointer as `u64` (done in the probe only, never in `raw`).
+
+### FILES CREATED OR MODIFIED
+
+```
+docs/specs/lughac-c-pointers.md — Status section: needs 1–2 done, 4 and 6 partial, the rest open, the new gap
+DECISIONS.md                    — DECISION-005 progress note
+CONTEXT.md                      — this session
+```
+
+### TESTS WRITTEN
+
+- None in the repo (the probe lives in the scratchpad; no package code yet).
+
+### DECISIONS MADE
+
+- None new. DECISION-005 stands: PRP-001 waits for lughac.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- PRP-001 blocked on lughac: `ptr`/`mut` pointers, bytes across the boundary, unions, callbacks with pointer parameters, and nullable pointer fields in extern structs.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open a session first. PRP-001 is blocked until lughac can pass out-parameters, pointers to extern structs and byte buffers to C (DECISION-005). That work happens in `../lugha`, in a session there, from `docs/specs/lughac-c-pointers.md`. When lughac ships it: check `lughac --version` and `lughac spec` §8 for the new syntax, then run discovery for PRP-001 from the brief in session 3 above, open every header again for each extern, and present the PRP for approval. wasmtime v49.0.3 is already installed.
+Open a session first. PRP-001 is still blocked on lughac (DECISION-005). `docs/specs/lughac-c-pointers.md` lists what's done (out parameters, m102) and what's left, now including nullable pointer fields in an `extern struct` (E0437). When lughac ships more of it, check each new feature against libwasmtime with a scratchpad probe at `-O0` and `-O2` before relying on it. Once every need for the brief (session 3) is met, run discovery for PRP-001 and open the headers again for each extern. wasmtime v49.0.3 is installed.

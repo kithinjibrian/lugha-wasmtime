@@ -41,6 +41,8 @@ Rules:
 
 **Rationale:** Keeps `wasmtime.raw` exactly the headers (architecture rule 1), follows the Rapidkoi meeting's "gaps are fixed upstream, never worked around", adds no unchecked C between Lugha and untrusted guests, and lets lugha-gtk drop its own shims later.
 
+**Progress (session 4):** lughac m102 added `out` parameters; checked against libwasmtime, they cover needs 1 and 2 of `docs/specs/lughac-c-pointers.md`. PRP-001 stays blocked on the rest (pointers in, bytes, unions, pointer callbacks) and on a new gap: nullable pointer fields in an `extern struct` (E0437). See the spec's Status section.
+
 **Copied to MEMORY.md:** yes
 
 **Question:** wasmtime's C API returns almost everything through pointers, which lughac 0.1.0 can't express. How does PRP-001 reach it?
