@@ -32,7 +32,7 @@ fun instantiate(engine: Engine, store: Store, wat: string): Result<Instance, Lin
 fun fuel_reads_back_what_was_set() {
     let engine = Engine.new();
     let store = Store.new(engine).unwrap();
-    store.set_fuel(5000).unwrap();
+    assert_eq(store.set_fuel(5000), Ok(()));
     assert_eq(store.fuel().unwrap(), 5000 as u64);
     store.close();
     engine.close();
@@ -67,7 +67,7 @@ fun calls_spend_fuel() {
 fun a_memory_limit_stops_a_larger_memory() {
     let engine = Engine.new();
     let store = Store.new(engine).unwrap();
-    store.limit(Limits { memory_bytes: Some(65536), ..Limits.none() }).unwrap();
+    assert_eq(store.limit(Limits { memory_bytes: Some(65536), ..Limits.none() }), Ok(()));
     instantiate(engine, store, "(module (memory 1))").unwrap();
     match instantiate(engine, store, "(module (memory 2))") {
         Err(Instantiate(msg)) => assert(msg.contains("memory")),

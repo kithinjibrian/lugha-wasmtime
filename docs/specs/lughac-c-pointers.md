@@ -9,7 +9,7 @@ None blocks lugha-wasmtime; each is worked around openly (DECISION-007):
 
 1. **No way to name a field after a keyword.** wasmtime's `of`, `i32`, `i64`, `f32`, `f64` (and `private`) are keywords, so `raw` writes `of_`, `i32_`. lugha's own PRP-136 example (`extern struct Val { kind: u8, of: ValUnion }`, `ValUnion { i32: … }`) doesn't compile for the same reason. A raw-identifier syntax would let `raw` match the headers exactly.
 2. **No absent callback.** A C function-pointer parameter that is always NULL (`wasmtime_store_new`'s `finalizer`) has to be declared `Option<CPtr>`. An `Option` of a callback type would say what it is.
-3. **No unit type.** `Result<(), E>` doesn't parse, so "nothing to return" is `Result<i64, E>` with `Ok(0)`, as std does.
+3. ~~**No unit type.**~~ Done in lughac m107; lugha-wasmtime now returns `Result<(), E>`. Left over: `()` isn't a pattern (`Ok(()) =>` is E0201; `Ok(_)` works).
 
 ## Status (session 5, after lughac m103–m106)
 

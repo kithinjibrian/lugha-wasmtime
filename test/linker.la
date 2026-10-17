@@ -31,7 +31,7 @@ fun parts(): (Engine, Store, Linker) {
 
 /** Defines `env.add` as `f`. */
 fun define_add(linker: Linker, f: fun(Caller, Val[]): Result<Val[], string>) {
-    linker.define("env", "add", [ValType.I64, ValType.I64], [ValType.I64], f).unwrap();
+    assert_eq(linker.define("env", "add", [ValType.I64, ValType.I64], [ValType.I64], f), Ok(()));
 }
 
 /** Adds two `I64`s. */

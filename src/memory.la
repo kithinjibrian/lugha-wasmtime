@@ -77,12 +77,12 @@ impl Memory {
     /**
      * Checks that `len` bytes at `offset` lie inside the memory as it is now.
      *
-     * @returns `Ok(0)`, or `Err(OutOfBounds)` / `Err(Closed)`
+     * @returns `Ok(())`, or `Err(OutOfBounds)` / `Err(Closed)`
      */
-    fun check(self, offset: u64, len: u64): Result<i64, MemoryError> {
+    fun check(self, offset: u64, len: u64): Result<(), MemoryError> {
         let size = self.size()?;
         match offset.checked_add(len) {
-            Some(end) if end <= size => Ok(0),
+            Some(end) if end <= size => Ok(()),
             _ => Err(MemoryError.OutOfBounds(offset, len, size)),
         }
     }
@@ -112,19 +112,19 @@ impl Memory {
      * Copies `bytes` into the guest's memory starting at `offset`.
      *
      * @param offset byte offset into the memory
-     * @returns `Ok(0)`; `Err(OutOfBounds)` if the bytes would pass the
+     * @returns `Ok(())`; `Err(OutOfBounds)` if the bytes would pass the
      *     memory's size, in which case nothing is written; `Err(Closed)` if its
      *     store or host call is over
      *
      * Example:
      *     memory.write(ptr, "hello".to_bytes())?;
      */
-    public fun write(self, offset: u64, bytes: u8[]): Result<i64, MemoryError> {
+    public fun write(self, offset: u64, bytes: u8[]): Result<(), MemoryError> {
         self.check(offset, bytes.len as u64)?;
         if bytes.len == 0 {
-            return Ok(0);
+            return Ok(());
         }
         c_write(raw.wasmtime_memory_data(self.context, ptr self.memory), offset, bytes);
-        Ok(0)
+        Ok(())
     }
 }
