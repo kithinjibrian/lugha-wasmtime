@@ -46,16 +46,16 @@ Inside this repository:
 
 ```sh
 lughac run examples/log.la    # a guest logging through a host log(ptr, len), under fuel and a memory cap
-lughac test test/             # 59 tests, inline WebAssembly text, no other toolchain
+lughac test test/             # 64 tests, inline WebAssembly text, no other toolchain
 ```
 
-## What's covered (0.1.0)
+## What's covered (0.1.1)
 
 | Module | Items |
 | --- | --- |
-| `wasmtime` | the entry (`src/lib.la`): everything below re-exported, so `import wasmtime { Engine, Store, … };` is all a program needs; `wasmtime.raw` is not re-exported |
+| `wasmtime` | the entry (`src/lib.la`): everything below re-exported, so `import wasmtime { Engine, Store, wat_to_wasm, … };` is all a program needs; `wasmtime.raw` is not re-exported |
 | `wasmtime.engine` | `Engine` (`new` with fuel on, `close`); `Store` (`new`, `set_fuel`, `fuel`, `limit`, `close`; a new store has no fuel); `Limits` (`memory_bytes`, `table_elements`, `instances`, `tables`, `memories`; `Limits.none()`); `StoreError` |
-| `wasmtime.module` | `Module` (`new` from bytes, `from_text` via `wasmtime_wat2wasm`, `close`); `CompileError` (`Closed`, `Text`, `Wasm`) |
+| `wasmtime.module` | `Module` (`new` from bytes, `from_text` via `wasmtime_wat2wasm`, `close`); `wat_to_wasm(text)`, WebAssembly text to bytes without compiling, no engine needed (0.1.1); `CompileError` (`Closed`, `Text`, `Wasm`) |
 | `wasmtime.linker` | `Linker` (`new`, `define` a host function as a closure over i32/i64, `instantiate`, `close`); `Caller` (`memory`, valid during the host call); `LinkError` (`Closed`, `Define`, `Instantiate`, `Trap`, `OutOfFuel`) |
 | `wasmtime.instance` | `Instance` (`call` an export with `Val[]`, `memory`); `Val` (`I32`, `I64`); `ValType`; `CallError` (`Closed`, `MissingExport`, `NotAFunction`, `Arguments`, `UnsupportedType`, `Trap`, `OutOfFuel`) |
 | `wasmtime.memory` | `Memory` (`size` in bytes, `read`, `write`: each checked against the size read on that call); `MemoryError` (`Closed`, `MissingExport`, `NotAMemory`, `OutOfBounds`) |

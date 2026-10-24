@@ -11,6 +11,13 @@ Updated at the end of every session when something is completed and merged.
 
 ---
 
+## [0.1.1] — 2026-10-24
+
+### Added
+- `wat_to_wasm(text): Result<u8[], CompileError>` (PRP-002, asked for by Rapidkoi): WebAssembly text to bytes without compiling and without an engine, for writing `.wasm` files. `Err(Text)` when the text doesn't parse; text that parses but doesn't validate still gives its bytes. `Module.from_text` is built on it, unchanged in behaviour. 5 tests (64 in all).
+
+---
+
 ## [0.1.0] — 2026-10-17
 
 First release: the core runtime (PRP-001), against wasmtime's C API v49.0.3 and lughac m109.

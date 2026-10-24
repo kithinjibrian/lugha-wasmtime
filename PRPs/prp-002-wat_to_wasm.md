@@ -1,6 +1,6 @@
 # PRP-002 — WebAssembly text to bytes
 
-**Status:** approved 2026-10-24 (session 12). Requested by Rapidkoi (its session 216, DECISION-053, PRP-042).
+**Status:** built and released as 0.1.1, 2026-10-24 (session 12). Requested by Rapidkoi (its session 216, DECISION-053, PRP-042).
 
 ## FEATURE: A public function that turns WebAssembly text into WebAssembly bytes, without compiling them.
 
@@ -61,12 +61,12 @@ fun main() {
 
 ## TESTS TO WRITE (before the code, inline `.wat`)
 
-- [ ] Happy path: `wat_to_wasm` of the module `answer_bytes()` encodes by hand gives exactly those bytes (wasmtime's encoding of that module is canonical).
-- [ ] Round trip: its bytes compile with `Module.new` and the export returns 42.
-- [ ] `(module)` gives the 8-byte header (`\0asm`, version 1).
-- [ ] Error: `"(module"` is `Err(Text(msg))`, with `msg` containing wasmtime's "expected".
-- [ ] Edge: text that parses but doesn't validate gives `Ok` bytes, and `Module.new` of them is `Err(Wasm)`.
-- [ ] `from_text`'s existing tests stay green, including `Closed` on a closed engine and `Text` on bad text.
+- [x] Happy path: `wat_to_wasm` of the module `answer_bytes()` encodes by hand gives exactly those bytes (wasmtime's encoding of that module is canonical).
+- [x] Round trip: its bytes compile with `Module.new` and the export returns 42.
+- [x] `(module)` gives the 8-byte header (`\0asm`, version 1).
+- [x] Error: `"(module"` is `Err(Text(msg))`, with `msg` containing wasmtime's "expected".
+- [x] Edge: text that parses but doesn't validate gives `Ok` bytes, and `Module.new` of them is `Err(Wasm)`.
+- [x] `from_text`'s existing tests stay green, including `Closed` on a closed engine and `Text` on bad text.
 
 ## ROLLBACK PLAN
 
@@ -75,12 +75,12 @@ fun main() {
 
 ## ACCEPTANCE CRITERIA
 
-- [ ] `wat_to_wasm` is public, re-exported, documented, and behaves as above.
-- [ ] `from_text` behaves exactly as before (its tests pass unchanged).
-- [ ] `lughac test test/` passes; `examples/log.la` builds.
-- [ ] `lughac fmt --check src examples test` is clean.
-- [ ] No file over 400 lines.
-- [ ] CHANGELOG, README, MEMORY updated; `v0.1.1` tagged (pushed after the owner's go).
+- [x] `wat_to_wasm` is public, re-exported, documented, and behaves as above.
+- [x] `from_text` behaves exactly as before (its tests pass unchanged).
+- [x] `lughac test test/` passes; `examples/log.la` builds.
+- [x] `lughac fmt --check src examples test` is clean.
+- [x] No file over 400 lines.
+- [x] CHANGELOG, README, MEMORY updated; `v0.1.1` tagged (pushed after the owner's go).
 
 ## VALIDATION
 

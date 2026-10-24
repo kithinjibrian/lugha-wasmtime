@@ -90,7 +90,7 @@ Read this at the start of every session before writing any code.
 ## CURRENT PROJECT STATE
 
 ### Fully Working
-- Context system (session 1); the core runtime (PRP-001).
+- Context system (session 1); the core runtime (PRP-001, 0.1.0); `wat_to_wasm` (PRP-002, 0.1.1).
 
 ### Merged
 - PRP-001 (core runtime), built session 5, merged to `main` session 6: 56 tests pass, `examples/log.la` builds and runs.
