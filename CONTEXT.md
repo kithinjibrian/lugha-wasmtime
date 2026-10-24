@@ -412,14 +412,42 @@ CONTEXT.md   — this session
 
 ---
 
-## SESSION 12 — 2026-10-24 — PRP-002 WebAssembly text to bytes — open
+## SESSION 12 — 2026-10-24 — PRP-002 WebAssembly text to bytes — closed
 
-Branch: main
+Branch: main, prp-002-wat_to_wasm (merged)
 
-(In progress.)
+### WHAT WAS DONE
+
+Rapidkoi (its session 216, DECISION-053, PRP-042) asked for the bytes `Module.from_text` makes, so its tests can write `.wasm` files without cargo. Wrote PRP-002; the owner approved it. Built test-first: `public fun wat_to_wasm(text: string): Result<u8[], CompileError>` in `src/module.la` (no engine; only parses; `Err(Text)` on bad text), re-exported from the entry; `Module.from_text` now is the closed-engine check plus `Module.new(engine, wat_to_wasm(text)?)`. No new externs. Released **0.1.1** like 0.1.0: version, README, CHANGELOG, commit `279f41f`, lightweight tag `v0.1.1`.
+
+### FILES CREATED OR MODIFIED
+
+```
+PRPs/prp-002-wat_to_wasm.md — the PRP (built)
+src/module.la src/lib.la    — wat_to_wasm; from_text on it
+test/module.la              — 5 tests
+lugha.toml README.md CHANGELOG.md MEMORY.md — 0.1.1
+```
+
+### TESTS WRITTEN
+
+- `test/module.la`: text gives exactly the hand-encoded bytes; those bytes compile and run; `(module)` is the 8-byte header; bad text is `Text`; text that parses but doesn't validate gives bytes that `Module.new` rejects as `Wasm`. 64/64 pass; `fmt --check` clean; `examples/log.la` builds.
+
+### DECISIONS MADE
+
+- `wat_to_wasm` reuses `CompileError` (only `Text` comes back) so `?` carries it into `from_text`.
+
+### PENDING DECISIONS OPENED
+
+- None.
+
+### STILL OPEN AT CLOSE
+
+- `main` and `v0.1.1` are pushed only once the owner says so (see below).
+- `src/raw.la` at 396 lines. lughac gaps left to report: keyword field names, absent callbacks.
 
 ---
 
 ## NEXT SESSION START POINT
 
-Open a session first. 0.1.0 is released (`v0.1.0`, `e3e9477`) and on GitHub. A new release: bump `[package] version` in `lugha.toml`, the README's "What's covered (X.Y.Z)" and CHANGELOG, commit as `lugha-wasmtime X.Y.Z: <summary>`, tag `vX.Y.Z` (lightweight), and ask the owner before pushing, after checking `lughac test test/`'s real exit status. Split `src/raw.la` (396 lines) before any new extern, with approval. Report the two remaining lughac gaps in docs/specs/lughac-c-pointers.md.
+Open a session first. 0.1.1 (`v0.1.1`, `279f41f`) adds `wat_to_wasm` for Rapidkoi. If `git status -sb` shows `main` ahead of `origin` or `git ls-remote origin refs/tags/v0.1.1` is empty, ask the owner to push. Releases: bump `lugha.toml`, README "What's covered", CHANGELOG; commit `lugha-wasmtime X.Y.Z: …`; lightweight tag `vX.Y.Z`; push after the owner's go and a real-exit-status test run. Split `src/raw.la` (396 lines) before any new extern, with approval.
