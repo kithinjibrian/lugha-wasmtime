@@ -1,6 +1,6 @@
 # PRP-002 — WebAssembly text to bytes
 
-**Status:** proposed 2026-10-24 (session 12). Requested by Rapidkoi (its session 216, DECISION-053, PRP-042).
+**Status:** approved 2026-10-24 (session 12). Requested by Rapidkoi (its session 216, DECISION-053, PRP-042).
 
 ## FEATURE: A public function that turns WebAssembly text into WebAssembly bytes, without compiling them.
 
