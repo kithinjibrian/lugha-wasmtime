@@ -412,6 +412,14 @@ CONTEXT.md   — this session
 
 ---
 
+## SESSION 12 — 2026-10-24 — PRP-002 WebAssembly text to bytes — open
+
+Branch: main
+
+(In progress.)
+
+---
+
 ## NEXT SESSION START POINT
 
 Open a session first. 0.1.0 is released (`v0.1.0`, `e3e9477`) and on GitHub. A new release: bump `[package] version` in `lugha.toml`, the README's "What's covered (X.Y.Z)" and CHANGELOG, commit as `lugha-wasmtime X.Y.Z: <summary>`, tag `vX.Y.Z` (lightweight), and ask the owner before pushing, after checking `lughac test test/`'s real exit status. Split `src/raw.la` (396 lines) before any new extern, with approval. Report the two remaining lughac gaps in docs/specs/lughac-c-pointers.md.
