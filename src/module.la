@@ -20,6 +20,35 @@ public enum CompileError {
     Wasm(string),
 }
 
+/**
+ * Turns WebAssembly text (the `.wat` format) into WebAssembly bytes, without
+ * compiling them, for example to write a `.wasm` file. Needs no engine.
+ *
+ * It only parses: text that parses but isn't a valid module still gives its
+ * bytes, and `Module.new` is what rejects them.
+ *
+ * @param text the module, such as `(module (func (export "f")))`
+ * @returns the module's bytes; `Err(Text)` with wasmtime's message (line and
+ *     column) if the text doesn't parse. Never `Closed` or `Wasm`.
+ *
+ * Example:
+ *     write_bytes("f.wasm", wat_to_wasm("(module (func (export \"f\")))")?)?;
+ */
+public fun wat_to_wasm(text: string): Result<u8[], CompileError> {
+    let mut vec = message.empty_vec();
+    if let Some(error) = raw.wasmtime_wat2wasm(text, text.len as u64, out vec) {
+        return Err(CompileError.Text(message.error_text(error)));
+    }
+    let mut bytes: u8[] = [];
+    // An empty vector's data may be NULL, which `c_read` refuses; wasmtime never
+    // gives one on success (a module has at least its 8-byte header).
+    if vec.size > 0 {
+        bytes = c_read(vec.data, 0, vec.size);
+    }
+    raw.wasm_byte_vec_delete(mut vec);
+    Ok(bytes)
+}
+
 /** A compiled module, ready to instantiate into any store of its engine. */
 public struct Module {
     handle: raw.wasmtime_module_t,
@@ -71,13 +100,7 @@ impl Module {
         if !engine.is_live() {
             return Err(CompileError.Closed);
         }
-        let mut vec = message.empty_vec();
-        if let Some(error) = raw.wasmtime_wat2wasm(text, text.len as u64, out vec) {
-            return Err(CompileError.Text(message.error_text(error)));
-        }
-        let bytes = c_read(vec.data, 0, vec.size);
-        raw.wasm_byte_vec_delete(mut vec);
-        Module.new(engine, bytes)
+        Module.new(engine, wat_to_wasm(text)?)
     }
 
     /**

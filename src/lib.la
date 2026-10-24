@@ -14,7 +14,7 @@
  */
 
 public import engine { Engine, Store, StoreError, Limits };
-public import module { Module, CompileError };
+public import module { Module, CompileError, wat_to_wasm };
 public import linker { Linker, LinkError, Caller };
 public import instance { Instance, Val, ValType, CallError };
 public import memory { Memory, MemoryError };
